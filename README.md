@@ -79,23 +79,33 @@ what `delta-t` is used?
 
 | ![](media/2020_ploeger_1.gif) | 
 |:--:| 
-| *training [source](https://sites.google.com/view/jugglingbot)* |
+| *the training on the **single real robot** takes up to `5 h`: **`20` optimization steps** are performed. For each, `25` rollouts are performed. [source](https://sites.google.com/view/jugglingbot)* |
 
 | ![](media/2020_ploeger_1.png) | 
 |:--:| 
-| *the policy predicts a **normal distribution** from which parameters are sampled at the start of each episode. These parameters define the `4` switching points between the `4` juggling movements, called **`via-points`**. A **`PD` controller** computes the torques to follow the **spline** fitted on these `4` `via-points`. [source](https://arxiv.org/abs/2010.13483)* |
+| *a **normal distribution** (`mu`,`co-var`) from which parameters are sampled at the start of each rollout. These parameters define the `4` switching points, called **`via-points`**, between the `4` juggling movements. A **`PD` controller** computes the torques to follow the **spline** fitted on these `4` `via-points`. [source](https://arxiv.org/abs/2010.13483)* |
 
 | ![](media/2020_ploeger_2.png) | 
 |:--:| 
-| *the **end-effector helps** passively compensating for minor differences in ball trajectories. [source](https://arxiv.org/abs/2010.13483)* |
+| *the **end-effector helps** to passively compensate for minor differences in ball trajectories. [source](https://arxiv.org/abs/2010.13483)* |
 
 | ![](media/2020_ploeger_3.png) | 
 |:--:| 
-| *the **initialization** of the `via-points` is key and requires **engineering**. [source](https://arxiv.org/abs/2010.13483)* |
+| *the **initialization** of the `via-points` is key (since the **`reward` is sparse**) and requires **hand-tuning** and **engineering**. [source](https://arxiv.org/abs/2010.13483)* |
 
 | ![](media/2020_ploeger_4.png) | 
 |:--:| 
-| *__one-step `MDP`__: the current `mu`, `std` define a `Normal` distribution. Parameters are sampled to **generated the `4` via-points**. A **spline** is fitted. A **`PD` controller** tracks this trajectory. [source](https://arxiv.org/abs/2010.13483)* |
+| *__one-step `MDP`__: the current `mu`, `co-var` define a `Normal` distribution. Parameters are sampled to **generated the `4` via-points**. A **spline** is fitted. A **`PD` controller** tracks this trajectory. [source](https://arxiv.org/abs/2010.13483)* |
+
+_RL?_
+- **one-step** MDP
+- **no interaction** with the environment
+- **no `observation`!!**
+- > "This framing is identical to a **bandit setting** with high-dimensional and continuous `actions`"
+- _to me_:
+  - a **control problem**, where
+    - **initial parameters** are already good (manually tuned)
+    - **parameters are optimized** with a complex search procedure
 
 task
 - `2`-ball juggling
@@ -120,7 +130,7 @@ hw
 
 ideas
 - **before** the episode
-  - define a **normal distribution** from the current estimated `mu` and `std` (**multivariate**)
+  - define a **normal distribution** from the current estimated `mu` and `co-var` (**multivariate**)
   - **sample parameters** to define **`4` "via-points"**
   - note: this is the only time in the episode that `actions` are taken (afterwards **open-loop tracking** control)
   - compute a **cubic spline** from them (interpolation)
@@ -128,7 +138,7 @@ ideas
   - initial **stroke movement** that quickly enters the limit cycle without dropping a ball
     - ???
     - **hand-tuned**
-  - the second ball is released via a launching mechanism `3 m` above the floor
+  - the second ball is released via a launching mechanism `3 m` above the floor (`1.8 m` on `fig.2`)
 - in **steady state**:
   - keep tracking this spline (interpolated via-points) with a **`PD` controller** with **gravity compensation**
   - terminate on a ball fall
@@ -145,14 +155,6 @@ _how many trials?_
   - `20` "episodes"
 - `56 min` of **experience**
 - the **learning** still takes **up to `5 h`**
-
-_RL?_
-- **one-step** MDP
-- **no interaction** with the environment
-- **no `observation`!!**
-- > "This framing is identical to a **bandit setting** with high-dimensional and continuous `actions`"
-- _to me_:
-  - a **parameters optimization** for a control problem, **starting from a descent set** of parameters.
 
 open-loop
 - `closed-loop` is difficult:
