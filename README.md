@@ -1404,7 +1404,7 @@ todo
 
 - [`CS287 Advanced Robotics at UC Berkeley Fall 2019`](https://www.youtube.com/playlist?list=PLwRJQ4m4UJjNBPJdt8WamRAt4XKc639wF)
 
-## good practice
+## good practices
 
 - finding and executing RL project
   - [`winder.ai 1`](https://winder.ai/rl-presentation-finding-and-executing-reinforcement-learning-projects/)
@@ -1417,5 +1417,8 @@ todo
 - [`Nuts and Bolts of Deep RL Experimentation`](https://www.youtube.com/watch?v=8EcdaCk9KaQ)
 
 - [`Deep Reinforcement Learning Doesn't Work Yet`](https://www.alexirpan.com/2018/02/14/rl-hard.html)
+
+- [`reward shaping`](https://gibberblot.github.io/rl-notes/single-agent/reward-shaping.html)
+  - reward shaping: takes in some domain knowledge that "nudges" the learning algorithm towards more positive actions
 
 </details>
