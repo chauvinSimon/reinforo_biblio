@@ -1,7 +1,13 @@
 todo:
 - order in sections
-
+- cool additional projects
+  - [Intelligent Autonomous Systems - TU Darmstadt](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
+  - [OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
+  - https://corl2022.org/previous-conferences/
+- 
 # examples
+
+
 
 **`"cartpole"`**
 
@@ -59,6 +65,146 @@ self.state = (x, x_dot, theta, theta_dot)
 
 what `delta-t` is used?
 - `20 ms` in gym
+
+</details>
+
+---
+**`"High Acceleration Reinforcement Learning for Real-World Juggling with Binary Rewards"`**
+
+- **[[:memo:](https://arxiv.org/abs/2010.13483)]**
+  **[[🎞️](https://sites.google.com/view/jugglingbot)]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2020_ploeger_1.gif) | 
+|:--:| 
+| *training [source](https://sites.google.com/view/jugglingbot)* |
+
+| ![](media/2020_ploeger_1.png) | 
+|:--:| 
+| *the policy predicts a **normal distribution** from which parameters are sampled at the start of each episode. These parameters define the `4` switching points between the `4` juggling movements, called **`via-points`**. A **`PD` controller** computes the torques to follow the **spline** fitted on these `4` `via-points`. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_2.png) | 
+|:--:| 
+| *the **end-effector helps** passively compensating for minor differences in ball trajectories. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_3.png) | 
+|:--:| 
+| *the **initialization** of the `via-points` is key and requires **engineering**. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_4.png) | 
+|:--:| 
+| *__one-step `MDP`__: the current `mu`, `std` define a `Normal` distribution. Parameters are sampled to **generated the `4` via-points**. A **spline** is fitted. A **`PD` controller** tracks this trajectory. [source](https://arxiv.org/abs/2010.13483)* |
+
+task
+- `2`-ball juggling
+- high accelerations required: of up to `8 g`
+- [historic overview of robot juggling](https://www.youtube.com/watch?v=2ZfaADDlH4w)
+
+hw
+- [Barrett WAM manipulator](https://advanced.barrett.com/wam-arm-1)
+  - `4`-DoF
+  - **no simulation** possible:
+    - > "For the **tendon driven** `Barrett WAM`, rigid-body-simulators also cannot model the **dominating cable dynamics** at high accelerations"
+- [`optitrack`](https://optitrack.com/) ball tracker
+  - not perfect though:
+  - > "we had a hard time achieving good tracking performance during the experiments due to the wear and tear on the reflective tape and the frequent occlusions"
+- juggling balls
+  - `75 mm`
+  - [Russian style](https://juggle.fandom.com/wiki/Russian_style_juggling_balls):
+    - hollow plastic shell: **do not deform**
+    - partially filled with `37.5 g` of sand: **do not bounce**
+- end-effector designed to make the task **robust**
+  - the **funnel-shaped** end-effector passively compensates for minor differences in ball trajectories
+
+ideas
+- **before** the episode
+  - define a **normal distribution** from the current estimated `mu` and `std` (**multivariate**)
+  - **sample parameters** to define **`4` "via-points"**
+  - note: this is the only time in the episode that `actions` are taken (afterwards **open-loop tracking** control)
+  - compute a **cubic spline** from them (interpolation)
+- in **transient state** = **stroke-based** movement
+  - initial **stroke movement** that quickly enters the limit cycle without dropping a ball
+    - ???
+    - **hand-tuned**
+  - the second ball is released via a launching mechanism `3 m` above the floor
+- in **steady state**:
+  - keep tracking this spline (interpolated via-points) with a **`PD` controller** with **gravity compensation**
+  - terminate on a ball fall
+  - truncation after `10 s` juggle
+- after the episode
+  - estimate performance with **binary `reward`** (sparse):
+    - `+1` each time one ball reaches `60 cm`
+- after `20` episodes:
+  - optimize the **parameters distribution** and repeat
+
+_how many trials?_
+- `500` rollouts:
+  - `25` randomly sampled parameters executed per "episode"
+  - `20` "episodes"
+- `56 min` of **experience**
+- the **learning** still takes **up to `5 h`**
+
+_RL?_
+- **one-step** MDP
+- **no interaction** with the environment
+- **no `observation`!!**
+- > "This framing is identical to a **bandit setting** with high-dimensional and continuous `actions`"
+- _to me_:
+  - a **parameters optimization** for a control problem, **starting from a descent set** of parameters.
+
+open-loop
+- `closed-loop` is difficult:
+  - **noisy ball observation** and potential **outliers** might **cause instabilities**
+- human can do `open-loop`:
+  - > "well trained jugglers can juggle basic patterns **blindfolded**"
+
+`via point` parameters used to define a **cubic spline**
+- position `qi`
+- velocity `q˙i`
+  - enforced to be `0` (which reduces the dimensionality)
+- duration `ti`
+
+safety
+- safer to **predict** a trajectory, rather than **torques**
+  - **tight box constraints** in **joint space** are enforced for the desired trajectory
+  - against **self-collisions** and hitting the **joint limits**
+
+**`policy` (parameter distribution) initialization**
+- **expert** initialization
+- **engineering required!**
+- initially the robot on average achieves **between `1` to `3` repeated catches**
+- **`via-points` are manually initialized**
+  - advantage: they are **interpretable**
+  - > "tuning the **stroke-based movement** is the hardest part of the manual parameter tuning"
+
+policy optimizer
+- information-theoretic policy search approach
+  - **_episodic Relative Entropy Policy Search_ (`eREPS`)**
+- quite complex!
+- > "We use `eREPS` instead of `EM-based` or `gradient-based` policy search as the **`KL` constraint** prevents premature convergence and **large, possibly unsafe, jumps** of the `policy` mean"
+
+sparse rewards
+- the **delay** between `action` and `reward`, i.e., **"credit assignment"**, is a challenge:
+  - a **bad `action`** within the throwing will cause a drop, i.e. `reward = 0`, **seconds after the `action`**
+- requires a **very good `policy` initialization!**
+
+</details>
+
+---
+
+---
+**`"Curriculum Learning for Reinforcement Learning Domains: A Framework and Survey"`**
+
+- **[[:memo:](https://arxiv.org/pdf/2003.04960.pdf)]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2020_narvekar_1.png) | 
+|:--:| 
+| *todo [source](https://arxiv.org/pdf/2003.04960.pdf)* |
 
 </details>
 
