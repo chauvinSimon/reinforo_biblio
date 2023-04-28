@@ -1379,43 +1379,43 @@ todo
 
 ## papers
 
-[`Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning`](https://leggedrobotics.github.io/legged_gym/)
-- training the quadruped `ANYmal` robot in `Isaac Gym`
-- [presentation](https://www.youtube.com/watch?v=Afi17BnSuBM)
+- [`Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning`](https://leggedrobotics.github.io/legged_gym/)
+  - training the quadruped `ANYmal` robot in `Isaac Gym`
+  - [presentation](https://www.youtube.com/watch?v=Afi17BnSuBM)
 
-[`Intelligent Autonomous Systems - TU Darmstadt`](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
+- [`Intelligent Autonomous Systems - TU Darmstadt`](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
 
-[OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
+- [OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
 
-[`CoRL`](https://corl2022.org/previous-conferences/)
+- [`CoRL`](https://corl2022.org/previous-conferences/)
 
 ## sim
 
 [`nvidia Isaac Orbit`](https://isaac-orbit.github.io/orbit/source/tutorials_envs/00_gym_env.html)
 
-[`isaac gym`](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/tutorial_gym_isaac_gym.html)
-- [`OmniIsaacGymEnvs`](https://github.com/NVIDIA-Omniverse/OmniIsaacGymEnvs)
+- [`isaac gym`](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/tutorial_gym_isaac_gym.html)
+  - [`OmniIsaacGymEnvs`](https://github.com/NVIDIA-Omniverse/OmniIsaacGymEnvs)
 
-[`SimuRLacra`](https://github.com/famura/SimuRLacra)
+- [`SimuRLacra`](https://github.com/famura/SimuRLacra)
 
 ## lectures
 
-[`CS285 Deep Reinforcement Learning`](https://rail.eecs.berkeley.edu/deeprlcourse/)
+- [`CS285 Deep Reinforcement Learning`](https://rail.eecs.berkeley.edu/deeprlcourse/)
 
-[`CS287 Advanced Robotics at UC Berkeley Fall 2019`](https://www.youtube.com/playlist?list=PLwRJQ4m4UJjNBPJdt8WamRAt4XKc639wF)
+- [`CS287 Advanced Robotics at UC Berkeley Fall 2019`](https://www.youtube.com/playlist?list=PLwRJQ4m4UJjNBPJdt8WamRAt4XKc639wF)
 
 ## good practice
 
-finding and executing RL project
-- [`winder.ai 1`](https://winder.ai/rl-presentation-finding-and-executing-reinforcement-learning-projects/)
-- [`winder.ai 2`](https://winder.ai/rl-presentation-how-to-overcome-reinforcement-learning-challenges/)
+- finding and executing RL project
+  - [`winder.ai 1`](https://winder.ai/rl-presentation-finding-and-executing-reinforcement-learning-projects/)
+  - [`winder.ai 2`](https://winder.ai/rl-presentation-how-to-overcome-reinforcement-learning-challenges/)
 
-[`RL in practice: tips & tricks`](https://www.youtube.com/watch?v=Ikngt0_DXJg)
-- about concrete considerations when learning on real robots
-- [slides](https://araffin.github.io/slides/rlvs-tips-tricks/)
+- [`RL in practice: tips & tricks`](https://www.youtube.com/watch?v=Ikngt0_DXJg)
+  - about concrete considerations when learning on real robots
+  - [slides](https://araffin.github.io/slides/rlvs-tips-tricks/)
 
-[`Nuts and Bolts of Deep RL Experimentation`](https://www.youtube.com/watch?v=8EcdaCk9KaQ)
+- [`Nuts and Bolts of Deep RL Experimentation`](https://www.youtube.com/watch?v=8EcdaCk9KaQ)
 
-[`Deep Reinforcement Learning Doesn't Work Yet`](https://www.alexirpan.com/2018/02/14/rl-hard.html)
+- [`Deep Reinforcement Learning Doesn't Work Yet`](https://www.alexirpan.com/2018/02/14/rl-hard.html)
 
 </details>
