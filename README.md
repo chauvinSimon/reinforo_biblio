@@ -22,558 +22,10 @@ todo:
 - 
 
 ---
-
 ---
+
 
 # :mechanical_arm: :mechanical_arm: sim2real - big projects
-anymal
-openAI cube
-
-# :mechanical_arm: sim2real - small projects
-- push chips
-- sim param dist + panda
-- `ball-in-a-cup` randomization
-- policy distillation
-
-# :chopsticks: tasks examples
-- cartpole
-- ball-in-a-cup
-
-# :point_up: not (classical) RL
-- palme
-- toss
-- juggle: no sim, 1-step MDP
-- Excavation: one step
-
-# :books: theory & reviews
-- curriculum
-- time limit
-- domain randomization
-- offline RL
-
-**`"cartpole"`**
-
-- **[[:memo:](https://www.gymlibrary.dev/environments/classic_control/cart_pole/)]**
-  **[[:octocat:](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py#enroll-beta)]**
-- **[** _`classic control`, `gym`, `task example`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2018_inverted_pendulum_1.gif) | 
-|:--:| 
-| *with `PID` [source](https://www.youtube.com/watch?v=B4E9tGmONn0)* |
-
-| ![](media/2018_inverted_pendulum_2.gif) | 
-|:--:| 
-| *with `MPC` or `LQR` controller? [source](https://blog.arduino.cc/2018/05/23/zipy-is-a-homebrew-inverted-pendulum/)* |
-
-[`gym.CartPoleEnv`](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py)
-- the `dynamics` is modelled following [this paper](https://coneural.org/florian/papers/05_cart_pole.pdf)
-  - the `action` represents a `force` and is converted to `acceleration`s
-  - the `acceleration`s are used in integrators to derive `speed` and `position`
-
-| Num | Action                 |
-|-----|------------------------|
-| 0   | Push cart to the left  |
-| 1   | Push cart to the right |
-
-```python
-self.force_mag = 10  # N      
-      
-force = self.force_mag if action == 1 else -self.force_mag
-costheta = math.cos(theta)
-sintheta = math.sin(theta)
-
-# For the interested reader:
-# https://coneural.org/florian/papers/05_cart_pole.pdf
-temp = (force + self.polemass_length * theta_dot**2 * sintheta) / self.total_mass
-thetaacc = (self.gravity * sintheta - costheta * temp) / (
-    self.length * (4.0 / 3.0 - self.masspole * costheta**2 / self.total_mass)
-)
-xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
-
-if self.kinematics_integrator == "euler":
-    x = x + self.tau * x_dot
-    x_dot = x_dot + self.tau * xacc
-    theta = theta + self.tau * theta_dot
-    theta_dot = theta_dot + self.tau * thetaacc
-else:  # semi-implicit euler
-    x_dot = x_dot + self.tau * xacc
-    x = x + self.tau * x_dot
-    theta_dot = theta_dot + self.tau * thetaacc
-    theta = theta + self.tau * theta_dot
-
-self.state = (x, x_dot, theta, theta_dot)
-```
-
-_what `delta-t`?_
-- `20 ms` in [`gym`](https://github.com/openai/gym/blob/dcd185843a62953e27c2d54dc8c2d647d604b635/gym/envs/classic_control/cartpole.py#L97)
-
-</details>
-
----
-
-**`"High Acceleration Reinforcement Learning for Real-World Juggling with Binary Rewards"`**
-
-- **[[:memo:](https://arxiv.org/abs/2010.13483)]**
-  **[[🎞️](https://sites.google.com/view/jugglingbot)]**
-- **[** _`no sim`, `1-step`, `expert init`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2020_ploeger_1.gif) | 
-|:--:| 
-| *the training on the **single real robot** takes up to `5 h`: **`20` optimization steps** are performed. For each, `25` rollouts are performed. [source](https://sites.google.com/view/jugglingbot)* |
-
-| ![](media/2020_ploeger_1.png) | 
-|:--:| 
-| *a **normal distribution** (`mu`,`co-var`) from which parameters are sampled at the start of each rollout. These parameters define the `4` switching points, called **`via-points`**, between the `4` juggling movements. A **`PD` controller** computes the torques to follow the **spline** fitted on these `4` `via-points`. [source](https://arxiv.org/abs/2010.13483)* |
-
-| ![](media/2020_ploeger_2.png) | 
-|:--:| 
-| *the **end-effector helps** to passively compensate for minor differences in ball trajectories. [source](https://arxiv.org/abs/2010.13483)* |
-
-| ![](media/2020_ploeger_3.png) | 
-|:--:| 
-| *the **initialization** of the `via-points` is key (since the **`reward` is sparse**) and requires **hand-tuning** and **engineering**. [source](https://arxiv.org/abs/2010.13483)* |
-
-| ![](media/2020_ploeger_4.png) | 
-|:--:| 
-| *__one-step `MDP`__: the current `mu`, `co-var` define a `Normal` distribution. Parameters are sampled to **generated the `4` via-points**. A **spline** is fitted. A **`PD` controller** tracks this trajectory. [source](https://arxiv.org/abs/2010.13483)* |
-
-_RL?_
-- **one-step** MDP
-- **no interaction** with the environment
-- **no `observation`!!**
-- > "This framing is identical to a **bandit setting** with high-dimensional and continuous `actions`"
-- _to me_:
-  - a **control problem**, where
-    - **initial parameters** are already good (manually tuned)
-    - **parameters are optimized** with a complex search procedure
-
-task
-- `2`-ball juggling
-- high accelerations required: of up to `8 g`
-- [historic overview of robot juggling](https://www.youtube.com/watch?v=2ZfaADDlH4w)
-
-hw
-- [Barrett WAM manipulator](https://advanced.barrett.com/wam-arm-1)
-  - `4`-DoF
-  - **no simulation** possible:
-    - > "For the **tendon driven** `Barrett WAM`, rigid-body-simulators also cannot model the **dominating cable dynamics** at high accelerations"
-- [`optitrack`](https://optitrack.com/) ball tracker
-  - not perfect though:
-  - > "we had a hard time achieving good tracking performance during the experiments due to the wear and tear on the reflective tape and the frequent occlusions"
-- juggling balls
-  - `75 mm`
-  - [Russian style](https://juggle.fandom.com/wiki/Russian_style_juggling_balls):
-    - hollow plastic shell: **do not deform**
-    - partially filled with `37.5 g` of sand: **do not bounce**
-- end-effector designed to make the task **robust**
-  - the **funnel-shaped** end-effector passively compensates for minor differences in ball trajectories
-
-ideas
-- **before** the episode
-  - define a **normal distribution** from the current estimated `mu` and `co-var` (**multivariate**)
-  - **sample parameters** to define **`4` "via-points"**
-  - note: this is the only time in the episode that `actions` are taken (afterwards **open-loop tracking** control)
-  - compute a **cubic spline** from them (interpolation)
-- in **transient state** = **stroke-based** movement
-  - initial **stroke movement** that quickly enters the limit cycle without dropping a ball
-    - ???
-    - **hand-tuned**
-  - the second ball is released via a launching mechanism `3 m` above the floor (`1.8 m` on `fig.2`)
-- in **steady state**:
-  - keep tracking this spline (interpolated via-points) with a **`PD` controller** with **gravity compensation**
-  - terminate on a ball fall
-  - truncation after `10 s` juggle
-- after the episode
-  - estimate performance with **binary `reward`** (sparse):
-    - `+1` each time one ball reaches `60 cm`
-- after `20` episodes:
-  - optimize the **parameters distribution** and repeat
-
-_how many trials?_
-- `500` rollouts:
-  - `25` randomly sampled parameters executed per "episode"
-  - `20` "episodes"
-- `56 min` of **experience**
-- the **learning** still takes **up to `5 h`**
-
-open-loop
-- `closed-loop` is difficult:
-  - **noisy ball observation** and potential **outliers** might **cause instabilities**
-- human can do `open-loop`:
-  - > "well trained jugglers can juggle basic patterns **blindfolded**"
-
-`via point` parameters used to define a **cubic spline**
-- position `qi`
-- velocity `q˙i`
-  - enforced to be `0` (which reduces the dimensionality)
-- duration `ti`
-
-safety
-- safer to **predict** a trajectory, rather than **torques**
-  - **tight box constraints** in **joint space** are enforced for the desired trajectory
-  - against **self-collisions** and hitting the **joint limits**
-
-**`policy` (parameter distribution) initialization**
-- **expert** initialization
-- **engineering required!**
-- initially the robot on average achieves **between `1` to `3` repeated catches**
-- **`via-points` are manually initialized**
-  - advantage: they are **interpretable**
-  - > "tuning the **stroke-based movement** is the hardest part of the manual parameter tuning"
-
-policy optimizer
-- information-theoretic policy search approach
-  - **_episodic Relative Entropy Policy Search_ (`eREPS`)**
-- quite complex!
-- > "We use `eREPS` instead of `EM-based` or `gradient-based` policy search as the **`KL` constraint** prevents premature convergence and **large, possibly unsafe, jumps** of the `policy` mean"
-
-sparse rewards
-- the **delay** between `action` and `reward`, i.e., **"credit assignment"**, is a challenge:
-  - a **bad `action`** within the throwing will cause a drop, i.e. `reward = 0`, **seconds after the `action`**
-- requires a **very good `policy` initialization!**
-
-</details>
-
----
-
-**`"Curriculum Learning for Reinforcement Learning Domains: A Framework and Survey"`**
-
-- **[[:memo:](https://arxiv.org/pdf/2003.04960.pdf)]**
-- **[** _`todo`, `curriculum learning`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-todo
-
-| ![](media/2020_narvekar_1.png) | 
-|:--:| 
-| *todo [source](https://arxiv.org/pdf/2003.04960.pdf)* |
-
-</details>
-
----
-
-**`"Reinforcement Learning of Motor Skills using Policy Search and Human Corrective Advice"`**
-
-- **[** `2018` **]**
-  **[[:memo:](https://www.ias.informatik.tu-darmstadt.de/uploads/Alumni/JensKober/IJRR__Revision_.pdf)]**
-  **[[🎞️](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)]**
-- **[** _`ball-in-a-cup`, `task example`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2018_celemin_1.gif) | 
-|:--:| 
-| *description [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-</details>
-
----
-
-**`"Learning Dexterous In-Hand Manipulation"`**
-
-- **[** `2019` **]**
-  **[[:memo:](https://arxiv.org/pdf/1808.00177.pdf)]**
-  **[[🎞️](https://openai.com/research/learning-dexterity)]**
-  **[[🎞️](https://www.youtube.com/watch?v=6fo5NhnyR8I)]**
-- **[** _`openAI`, `randomization`, `RNN`, `privileged learning`, `external pose estimator`_ **]**
-
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2020_andrychowicz_1.png) | 
-|:--:| 
-| *many environments are simulated [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
-
-| ![](media/2020_andrychowicz_2.png) | 
-|:--:| 
-| *randomization of __`physics` parameters__. Other parameters are randomized, not just `Physics` [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
-
-| ![](media/2020_andrychowicz_3.png) | 
-|:--:| 
-| *`Asymmetric Actor-Critic`: to make the training easier, the `Value` network can have access to **information that is not available on the real robot system** [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
-
-| ![](media/2020_andrychowicz_1.gif) | 
-|:--:| 
-| *a `pose estimator` is learnt to feed the `pose` (not the `image`) to the `policy`. And __internal sensors__ are not used because __hard to model__. [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
-
-ideas
-- train in **simulated** environments with **randomization** of
-  - `dynamics`: physical properties, e.g. **friction coefficients**
-  - `observation`: object's appearance
-- key ingredients
-  - **extensive randomization**
-  - `RNN`: **memory-augmented** control polices
-    - > "Many of the randomizations we employ **persist across an episode**, and thus it should be possible for a **memory augmented policy** to **identify properties** of the current environment and adapt its own behavior accordingly"
-    - `RNN` in both the `policy` and `value` function
-    - `LSTM` state is **predictive of the environment randomization**
-  - **distributed `RL`**
-
-control policy
-- `obs`
-  - cube pose
-  - fingertips locations
-  - sensors in real world
-    - (markers) 16 PhaseSpace tracking cameras
-    - (vision) 3 Basler RGB cameras
-      - 3 cameras to resolve pose ambiguities that may occur with monocular vision
-    - > "we do not use the **touch sensors** embedded in the hand"
-      - because they are subject to **`state`-dependent noise** that would have been **difficult to model** in the simulator
-- `action`
-  - desired `joints angles` relative to the current ones
-  - [`24`-DoF `5`-finger Hand](https://www.shadowrobot.com/dexterous-hand-series/)
-  - `action` discretized into **`11` bins**
-    - > "While `PPO` can handle both `continuous` and `discrete` action spaces, we noticed that **`discrete` `action` spaces** work much better"
-- `reward`
-  - error in `rotation angles`
-  - bonus if success
-  - penalty if cube falls
-- `dt`
-  - forward path in NN: `25ms` 
-  - > "We update the targets of the `low`-level controller, which runs at roughly **`1` kHz**, with **relative positions** given by the `control policy` at roughly **`12` Hz**"
-  - > "Each environment step corresponds to **`80 ms` of real time** and consists of **`10` consecutive `MuJoCo` steps**, each corresponding to `8 ms`"
-
-**pose estimator**
-- a pre-trained **encoder** of the `observation`
-- **trained separately** from the `control policy`
-- in: 3 cam images
-- out: `position` and `orientation`
-
-simulator
-- MuJoCo
-- Unity for rendering
-- the model of the Hand is improved using calibration
-
-[`Rapid`]()
-- `PPO` scales up easily and requires **little hyperparameter tuning**
-- > The vast majority of training time is spent **making the policy robust** to different physical dynamics
-  - one domain: 3 years
-  - all domains: 100 years of experience
-
-**privileged** learning
-- in `PPO`, the `value` network is **only used during training**
-- `Asymmetric Actor-Critic`: value network can have access to **information that is not available on the real robot system**, to make the training easier
-
-**reality gap**
-- no **`tendon`-based actuation**
-  - rather `torque` applied to `joints`
-- no **deformable body contact** models
-  - rather **rigid body contact** models 
-
-randomization
-- `Observation` noise
-  - Gaussian noise to `policy` `obs`
-  - > "we apply a `correlated noise` which is sampled **once per episode** as well as an `uncorrelated noise` sampled at **every timestep**"
-- Physics randomization
-  - `calibration` = `system identification`
-  - sampled at the start of each episode and held fixed
-- Unmodeled effects
-  - > "To account for **imperfect actuation**, we use a simple model of **motor backlash** and introduce `action delays` and `action noise` before applying them in simulation"
-  - against short-time **loss of tracking** and marker **occlusion**
-    - **freezing the `position`** of a simulated marker with low probability for a short period of time in simulation
-  - > "To handle additional unmodeled dynamics, we apply **small random forces** to the object"
-- Visual appearance randomization
-  - camera positions and intrinsics
-  - the pose of the hand and object
-  - lighting, materials and textures
-
-</details>
-
----
-
-**`"Time limits in reinforcement learning"`**
-
-- **[** `2022` **]**
-  **[[:memo:](https://arxiv.org/pdf/1712.00378.pdf)]**
-  **[[🎞️](https://www.youtube.com/watch?v=UUqidOSMKLE)]**
-  **[[🎞️](https://fabiopardo.github.io/posters/time_limits_in_rl.pdf)]**
-  **[[🎞️](https://sites.google.com/view/time-limits-in-rl)]**
-- **[** _`Markov`, `time-awareness`, `truncation`, `termination`, `bootstrappig`, `episode`, `gymnasium`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2022_pardo_1.gif) | 
-|:--:| 
-| *The `infinite cube pusher` task [source](https://youtu.be/ckgVLgFi-sc?t=56)* |
-
-| ![](media/2022_pardo_1.png) | 
-|:--:| 
-| *in __`episodic`__ task, add `remaining-time` to `obs` // in __`non-episodic`__ task, make them `episodic` to __increase exploration__, but make sure to __boostrap when `truncating`__ to let the agent know that __more `rewards` would actually be available__ thereafter [source](https://arxiv.org/abs/1712.00378)* |
-
-| ![](media/2022_pardo_2.png) | 
-|:--:| 
-| *`gymnasium` approach: distinguish `MDP`-`termination` and external-`truncation` [source](https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits)* |
-
-ideas
-- especially for `bootstrapping` methods 
-- [`episodic` task]
-  - respect Markov
-  - add `remaining time` to `observation`
-- [`time-unlimited` task]
-  - make it `episodic` (`timeout`) **during training** to help exploration
-  - but be careful: [`timeout` termination] `!=` [`env` (`MDP`) termination]
-  - therefore: `bootstrap` at `states` where `termination` is due to **time limits**
-
-note:
-- `bootstrapping` = using **estimated values** of `V[s+1]` to update the **estimate** of the `V[s]`
-
-case1: **time-_limited_** tasks
-- i.e. "episodic"
-  - the _maximum length_ of an episode is fixed
-- possible issues:
-  - **`state aliasing`**, i.e. unperceived remaining time
-    - a time-**unaware** agent has to act in a `POMDP` where `states` (that only differ by their **remaining time**) appear identical
-    - perception of **non-stationarity** of the `env`: the `terminations` due to **time limits** can only be **interpreted** as part of the **`env`'s stochasticity**
-    - infeasibility of correct **`credit assignment`**: **conflicting updates** for estimating the *`value` of the same `state`* result in an inaccurate average
-    - suboptimal policies and **instability**
-    - "out-of-reach cells leaking" (when `bootstrapping` `values` from `states` that were **out-of-reach**): letting the agent **falsely believe** that more `rewards` were available after
-- solution: **`time-awareness`** (`TA`)
-  - add a notion of the `remaining time` to the `observation`, to avoid violation of the **`Markov` property**
-  - learn to take **more risky** actions leading to higher expected returns as **approaching the time limit**
-
-case2: **time-_unlimited_** tasks
-- indefinite period, possibly infinite
-  - no underlying `episodic` structure
-  - e.g. `Hopper-v1` / `highway`
-- `exploration` requires sufficiently **randomized initial `states`**
-  - therefore, **"partial episodes"**
-    - frequently `reset` the `env` to **diversify experiences**
-    - introduce `truncations` to learn from **time-limited interactions**
-  - but: the `time limits` are not part of the `env` and are **only used to facilitate learning**
-- idea/solution: **differentiate** between the types of `terminations`
-  - those from the `env` (e.g. `off-road`)
-    - do not boostrap!
-  - those due to `time limits` (`truncation` in `gymnasium`)
-    - boostrap
-    - `partial-episode bootstrapping` (`PEB`)
-    - otherwise: **forgetting** that more `rewards` would actually be available thereafter
-- note: `PEB` helps large `experience replay buffers`
-
-[open question](https://youtu.be/UUqidOSMKLE?t=594) by Richard Sutton I guess:
-- `partial-episode bootstrapping` makes `on-policy` methods `off-policy`
-  - because the applied bootstrap (at `truncation`) uses estimates that **may not come from the current policy**
-  - _how to deal with that?_
-
-why do common **`time-unaware` agents** still often manage to perform relatively well?
-- if **`time limits` are so long** that timeouts are hardly ever experienced
-- if there are **clues in the `observations`** that are **correlated with time** (e.g. the `forward distance`)
-- if it is **not likely** to observe the **same `states` at different remaining times**
-- if the **`discount factor` is sufficiently small** to reduce the impact of the **confusion**
-
-[`gymnasium` approach](https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits)
-- in old `gym`, **time limits** are incorrectly handled
-  - > "The `done` signal received (in previous versions of OpenAI Gym < 0.26) from `env.step` indicated whether an **episode has ended**. However, this `done` signal did not distinguish whether the `episode` ended due to **`termination` or `truncation`**"
-- new `gymnasium` distinguishes
-  - `termination` = `MDP` end
-    - **terminal `states`** are defined as part of the **`env` definition**
-    - task `success`, task `failure`, robot falling down, etc.
-    - [in `finite-horizon` `env`]
-      - episodes ending due to **a time-limit inherent to the `env`**
-      - here the `remaining time` should be added to the `observation`
-  - **`truncation` = external interruption**
-    - not defined by the `MDP`
-      - e.g. **time-limit**, a robot going **out of bounds**
-    - [`infinite-horizon` `env`]
-      - `truncation` is needed
-      - > "We cannot **wait forever** for the **episode to complete**, so we set a **practical time-limit** after which we forcibly halt the episode."
-
-</details>
-
----
-
-**`"Deep Reinforcement Learning with Real-World Data"`**
-
-- **[** `2022` **]**
-  **[[🎞️](https://www.youtube.com/watch?v=0Kw-VTym9Pg)]**
-- **[** _`offline RL`, `data-driven RL`, `conservative Q-learning`_ **]**
-
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2022_levine_1.png) | 
-|:--:| 
-| *do not try to copy the garbage, rather try to **understand the `dynamics`**, i.e. the **consequences of decisions** [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
-
-| ![](media/2022_levine_2.png) | 
-|:--:| 
-| *extract the **best parts** of **suboptimal demonstrations** [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
-
-| ![](media/2022_levine_3.png) | 
-|:--:| 
-| *how to know if this is good if __you do see it__ in the data? it can be __dangerous__, but also __just better [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
-
-| ![](media/2022_levine_4.gif) | 
-|:--:| 
-| *the big trained `PTR` can be used either for __fine-tuning__ or for initializing __new tasks__ [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
-
-additional resource
-- [similar talk at GTC23](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51826/)
-- [`Imitation learning vs. offline reinforcement learning`](https://www.youtube.com/watch?v=sVPm7zOrBxM)
-- [`Reinforcement Learning Pretraining for Reinforcement Learning Finetuning`](https://www.youtube.com/watch?v=zg6Tip6s_mA)
-- [`Offline Reinforcement Learning: From Algorithms to Practical Challenges`](https://sites.google.com/view/offlinerltutorial-neurips2020/home)
-- [Chelsea Finn's intervention in `Dexterity: Machine Learning for Robot Manipulation and Dexterity`](https://youtu.be/Vj50Z7az3TY?t=642)
-
-**data-driven `RL`**
-- as a way to use "large + cheap + garbage" data
-- **do not to learn the `decision`**: _what to do?_
-  - but rather **understand the `consequences`**: _how does the world work?_
-  - understand the **world dynamics** from **suboptimal (w.r.t. our `task`) samples**
-- then define a `task`
-  - small supervised work: human-designed the `reward function`
-
-`RL` vs `supervised-learning`
-- about making **`decisions`** considering their consequences
-  - not just `predictions` (learning `p(x)`) that ignore the **consequences**
-- **active online** learning
-  - require an interaction: `online` is costly
-    - in a dialogue, you would have to talk to people in real-time
-
-`offline RL` vs `IL`
-- you do not want to **copy the garbage**
-- rather **copy the best parts** of each suboptimal data, and **generalize**
-
-issue with `offline RL`
-- **counterfactual queries**
-  - _"is it a good idea if I suddenly turn on the highway?"_, this **has not happened in the dataset** (out-of-distribution)
-  - `online RL` could try
-  - `offline RL` should, at the same time
-    - **generalize** to get better than the data
-    - **stay safe**
-- `distributional shift`
-  - apply naive `Q-learning` does not work
-  - **over-estimation of `Q`**
-    - predicted `Q-values` are huge
-    - learnt `pi returns` are bad
-  - it resembles **adversarial** example
-    - ??
-- sol: **`conservative Q-learning`**
-  - detect where (which `action`) the `Q-value` is over-estimated compared to the current `Q-value`, and reduce it
-  - a regularization similar to **adversarial** training process
-
-applications: **few-shots**
-- **fine-tuning** on task already present in the data
-- **pre-training** (initialization) of down-stream tasks
-
-[`PTR`: "Pre-Training for Robot"](https://sites.google.com/view/ptr-robotlearning)
-- trained on [Bridge Data](https://sites.google.com/view/bridgedata)
-- learn 1 `policy`, on all tasks (different domains)
-  - conditioned with one-hot vector (task)
-- **fine-tune** or **training** on a **new down-stream task**, while **preventing forgetting** (`batch-mixing`)
-
-</details>
-
----
 
 **`"Learning agile and dynamic motor skills for legged robots"`**
 
@@ -583,7 +35,6 @@ applications: **few-shots**
   **[[🎞️](https://www.youtube.com/watch?v=Afi17BnSuBM)]**
   **[[:octocat:️](https://github.com/junja94/anymal_science_robotics_supplementary)]**
 - **[** _`actuator-net`, `curriculum factors`, `quadrupedal system`, `elastic actuators`, `sim2real`, `randomization`_ **]**
-
 
 <details>
   <summary>Click to expand</summary>
@@ -814,6 +265,860 @@ differences from [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17
 
 ---
 
+**`"Learning Dexterous In-Hand Manipulation"`**
+
+- **[** `2019` **]**
+  **[[:memo:](https://arxiv.org/pdf/1808.00177.pdf)]**
+  **[[🎞️](https://openai.com/research/learning-dexterity)]**
+  **[[🎞️](https://www.youtube.com/watch?v=6fo5NhnyR8I)]**
+- **[** _`openAI`, `randomization`, `RNN`, `privileged learning`, `external pose estimator`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2020_andrychowicz_1.png) | 
+|:--:| 
+| *many environments are simulated [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
+
+| ![](media/2020_andrychowicz_2.png) | 
+|:--:| 
+| *randomization of __`physics` parameters__. Other parameters are randomized, not just `Physics` [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
+
+| ![](media/2020_andrychowicz_3.png) | 
+|:--:| 
+| *`Asymmetric Actor-Critic`: to make the training easier, the `Value` network can have access to **information that is not available on the real robot system** [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
+
+| ![](media/2020_andrychowicz_1.gif) | 
+|:--:| 
+| *a `pose estimator` is learnt to feed the `pose` (not the `image`) to the `policy`. And __internal sensors__ are not used because __hard to model__. [source](https://www.youtube.com/watch?v=jwSbzNHGflM)* |
+
+ideas
+- train in **simulated** environments with **randomization** of
+  - `dynamics`: physical properties, e.g. **friction coefficients**
+  - `observation`: object's appearance
+- key ingredients
+  - **extensive randomization**
+  - `RNN`: **memory-augmented** control polices
+    - > "Many of the randomizations we employ **persist across an episode**, and thus it should be possible for a **memory augmented policy** to **identify properties** of the current environment and adapt its own behavior accordingly"
+    - `RNN` in both the `policy` and `value` function
+    - `LSTM` state is **predictive of the environment randomization**
+  - **distributed `RL`**
+
+control policy
+- `obs`
+  - cube pose
+  - fingertips locations
+  - sensors in real world
+    - (markers) 16 PhaseSpace tracking cameras
+    - (vision) 3 Basler RGB cameras
+      - 3 cameras to resolve pose ambiguities that may occur with monocular vision
+    - > "we do not use the **touch sensors** embedded in the hand"
+      - because they are subject to **`state`-dependent noise** that would have been **difficult to model** in the simulator
+- `action`
+  - desired `joints angles` relative to the current ones
+  - [`24`-DoF `5`-finger Hand](https://www.shadowrobot.com/dexterous-hand-series/)
+  - `action` discretized into **`11` bins**
+    - > "While `PPO` can handle both `continuous` and `discrete` action spaces, we noticed that **`discrete` `action` spaces** work much better"
+- `reward`
+  - error in `rotation angles`
+  - bonus if success
+  - penalty if cube falls
+- `dt`
+  - forward path in NN: `25ms` 
+  - > "We update the targets of the `low`-level controller, which runs at roughly **`1` kHz**, with **relative positions** given by the `control policy` at roughly **`12` Hz**"
+  - > "Each environment step corresponds to **`80 ms` of real time** and consists of **`10` consecutive `MuJoCo` steps**, each corresponding to `8 ms`"
+
+**pose estimator**
+- a pre-trained **encoder** of the `observation`
+- **trained separately** from the `control policy`
+- in: 3 cam images
+- out: `position` and `orientation`
+
+simulator
+- MuJoCo
+- Unity for rendering
+- the model of the Hand is improved using calibration
+
+[`Rapid`]()
+- `PPO` scales up easily and requires **little hyperparameter tuning**
+- > The vast majority of training time is spent **making the policy robust** to different physical dynamics
+  - one domain: 3 years
+  - all domains: 100 years of experience
+
+**privileged** learning
+- in `PPO`, the `value` network is **only used during training**
+- `Asymmetric Actor-Critic`: value network can have access to **information that is not available on the real robot system**, to make the training easier
+
+**reality gap**
+- no **`tendon`-based actuation**
+  - rather `torque` applied to `joints`
+- no **deformable body contact** models
+  - rather **rigid body contact** models 
+
+randomization
+- `Observation` noise
+  - Gaussian noise to `policy` `obs`
+  - > "we apply a `correlated noise` which is sampled **once per episode** as well as an `uncorrelated noise` sampled at **every timestep**"
+- Physics randomization
+  - `calibration` = `system identification`
+  - sampled at the start of each episode and held fixed
+- Unmodeled effects
+  - > "To account for **imperfect actuation**, we use a simple model of **motor backlash** and introduce `action delays` and `action noise` before applying them in simulation"
+  - against short-time **loss of tracking** and marker **occlusion**
+    - **freezing the `position`** of a simulated marker with low probability for a short period of time in simulation
+  - > "To handle additional unmodeled dynamics, we apply **small random forces** to the object"
+- Visual appearance randomization
+  - camera positions and intrinsics
+  - the pose of the hand and object
+  - lighting, materials and textures
+
+</details>
+
+---
+
+# :mechanical_arm: sim2real - small projects
+
+**`"Sim-to-Real Transfer of Robotic Control with Dynamics Randomization"`**
+
+- **[** `2018` **]**
+  **[[:memo:](https://arxiv.org/pdf/1710.06537.pdf)]**
+  **[[🎞️](https://www.youtube.com/watch?v=XUW0cnvqbwM)]**
+- **[** _`domain randomization`, `pushing task`, `privileged learninig`, `RNN`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2018_peng_1.png) | 
+|:--:| 
+| *only with information required to **infer the `dynamics`** are passed to the `LSTM` unit. Since the current `state` (`st`) is of particular importance for determining the appropriate `action` for the current timestep, a copy is also provided as input to the __feedforward__ branch [source](https://arxiv.org/pdf/1710.06537.pdf)* |
+
+| ![](media/2018_peng_2.png) | 
+|:--:| 
+| *randomized `dynamics` parameters [source](https://arxiv.org/pdf/1710.06537.pdf)* |
+
+| ![](media/2018_sudharsan13296_1.png) | 
+|:--:| 
+| *Hindsight Experience Replay (`HER`): instead of considering the **trajectory as a failure** wrt. the current `goal`, it can be seen as a **success** for a different `goal` - which is valuable to learn [source](https://github.com/sudharsan13296/Hands-On-Reinforcement-Learning-With-Python)* |
+
+| ![](media/2018_peng_1.gif) | 
+|:--:| 
+| *`95` parameters are randomized. Some at each `action` step, some at each `episode` [source](https://www.youtube.com/watch?v=XUW0cnvqbwM)* |
+
+| ![](media/2018_peng_2.gif) | 
+|:--:| 
+| *the system is robust to changes in contact `dynamics` (a packet of chips is attached to the bottom of the puck) [source](https://www.youtube.com/watch?v=XUW0cnvqbwM)* |
+
+ideas
+- **low fidelity** simulator and **poor calibration / `SysID`** can be enough to fully learn in `sim` and successfully deploy into `real`
+- the `policy` is trained to adapt to a **wide-range of randomized environments** - hopefully it learns to adapt to yet another `env`: the **real `env`**.
+- ingredients to **prevent over-fitting** and enable transfer
+  - randomizing the `dynamics`
+  - adding noise to `observations`
+  - coping with the **latency of the controller**
+- > "With **domain randomization**, discrepancies between the `source` and `target` domains are modeled as **variability in the `source` domain**"
+
+task: **pushing**
+- > "pushing, a form of _**non-prehensile**_ manipulation, is an effective strategy for positioning and orienting objects that are too large or heavy to be grasped"
+- challenge: modeling the complex **contact dynamics** between surfaces
+
+hardware
+- tested on `7`-DOF [`Fetch Robotics`](https://fetchrobotics.com/) arm
+- the location of the puck is tracked using the [`PhaseSpace mocap`](https://www.phasespace.com/x2e-motion-capture/) system.
+
+`time` concepts in `MuJoCo` simulator
+- one episode = `100` **_control_** (`action`) steps
+- one _simulation_ timestep = `0.002s`
+- one _control_ timestep = `action duration` = multiple _simulation_ steps
+  - by default `20` _simulation_ steps = `dt0`
+- _how to **model the `latency`** of the real robot?_
+- **`action duration`** = `dt0 + eps`
+  - `eps` is sampled at **each step** from `exp(λ)`, with `λ` sampled at **each episode** from `[125, 1000] s−1` 
+- hence one **episode duration** = `100 * ~20 * 0.002` = `~4s`
+
+`MDP` formulation
+- `52`d `state` space:
+  - **arm joints**: positions, velocities
+  - **gripper**: position 
+  - **puck**: position, orientation, linear and angular velocities
+- `7`d `action` space:
+  - > "`actions` from the `policy` specify **target joint angles** for a `position controller`. Target angles are specified as **relative offsets** from the current joint rotations"
+  - _question: why caring about the `duration` between two `actions`? do they just wait for the move to finish between querying the agent for the next `action`?_ 
+    - > "The timestep between `actions` specifies the amount of time an **`action` is applied** before the policy is queried again to sample a new `action`. This serves as a simple model of the **latency** exhibited by the physical controller."
+    - _ok, I would understand if the `action` were a `torque`: the longer it is applied, the larger the changes. But with a target offset as `action`, the impact of the `action duration` does not make much sense to me, unless if the control is not blocking and can be interrupted/truncated._
+- **sparse** `rewards`
+  - > "designing a **dense** `reward` function can be challenging for more complex tasks, and may **bias the policy towards adopting less optimal behaviours**"
+  - the sparse `rewards` let the agent develops **clever strategies**
+    - > "these behaviours **emerged naturally** from the learning process using **only a _sparse binary_ `reward`**"
+
+benefits of **`RNN`** (both in `Value` and `Policy`)
+- in the absence of direct knowledge of the parameters, the **`dynamics` can be inferred from a history** of past `states` and `actions`
+  - either: try to **explicitly identify** the parameters
+  - or: `SysID` can be **implicitly embedded** into a `policy`
+    - using a **recurrent** model `π(at|st, zt, g)`
+    - the **internal memory `zt = z(ht)` acts as a summary of past `states` and `actions`**, thereby providing a mechanism with which the policy can use to **infer the dynamics** of the system.
+- do not pass **all info** to the recurrent unit
+  - the **goal location `g`** does not hold any information regarding the `dynamics` of the system: therefore processed only by the feedforward branch.
+- trained with `Recurrent DPG` (`RDPG`)
+- **stacking** is **simpler** and not much worse
+  - **history of the `8` previously observed `states` and `actions`**
+  - `FeedForw + Hist` achieves `87%` success in `sim` against `91%` for the `LSTM`
+
+**_omniscient_ critic** for **training efficiency**
+- similar to "privileged learninig" or [`Asymmetric Actor-Critic`](https://arxiv.org/abs/1710.06542)
+- the **`dynamics` parameters `µ`** are passed to the `Value function` receives as input, but not to the `policy`
+  - the `Value function` is used only during training, when `dynamics` parameters of the simulator are known
+  - this allow the `Value function` to provide more meaningful feedback for improving the policy
+
+**`HER` = Hindsight Experience Replay**
+- idea: instead of considering a **trajectory as a failure** for the current `goal`, it can be **considered it a success for a different `goal`**
+- **`HER` augments** the original training data recorded from rollouts of the policy **with additional data generated** from **replayed `goals`**, it requires **off-policy** learning
+
+**randomization**
+- _when?_
+  - either at the **start of each episode**
+    - > "a random set of **`dynamics` parameters** `µ` are sampled according to `ρµ` and held fixed for the duration of the episode"
+  - or at **each step**
+    - e.g. `action duration`, `observation noise`, `action` exploration noise
+- `95` randomized parameters
+  - **Mass** of each link in the robot’s body
+  - logarithmically sampled:
+  - Damping of each joint
+  - Mass, friction, and damping of the puck
+  - Height of the table
+  - Gains for the position controller
+  - Timestep between actions
+  - Observation noise
+    - independent Gaussian noise applied to each state feature
+    - **standard deviation** = **`5%` of the running std** of each feature
+- > "Parameters such as `mass`, `damping`, `friction`, and controller `gains` are **logarithmically sampled**, while other parameters are **uniformly sampled**"
+- > "Gaussian **`action` exploration noise** is added at every step with a standard deviation of `0.01 rad`"
+
+**system identification (`SysID`)**
+- often require **meticulous calibration** of the simulation to closely conform to the physical system
+- sometimes just impossible
+- here: the policies are able to adapt to significant **calibration error**.
+
+"universal" `policy`
+- `policy` and `rewards` are conditioned on the target (`goal` noted `g`)
+
+</details>
+
+---
+
+**`"Closing the sim-to-real Loop: Adapting simulation randomization with real world experience"`**
+
+- **[** `2019` **]**
+  **[[:memo:](https://arxiv.org/abs/1810.05687)]**
+  **[[🎞️](https://www.youtube.com/watch?v=nilcJY5Kdt8)]**
+  **[[🎞️](https://sites.google.com/view/simopt)]**
+- **[** _`sim2real`, `domain randomization`, `simulation parameter distribution`, `franka emika`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2019_chebotar_1.gif) | 
+|:--:| 
+| *iterations: set params, learn a `pi` in `sim`, collect (few) samples using this `pi` in real world, compare `real` and `sim` samples, adjust params, etc. [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+| ![](media/2019_chebotar_2.gif) | 
+|:--:| 
+| *it is often disadvantageous to use __overly wide distributions__ of simulation parameters as they can include scenarios with __infeasible solutions__ [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+| ![](media/2019_chebotar_3.gif) | 
+|:--:| 
+| *updating the parameters of the `simulator parameters distribution` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+| ![](media/2019_chebotar_4.gif) | 
+|:--:| 
+| *`swing-peg-in-hole` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+| ![](media/2019_chebotar_5.gif) | 
+|:--:| 
+| *`cabinet drawer` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+| ![](media/2019_chebotar_6.png) | 
+|:--:| 
+| *`simulation parameter distribution` is denoted by `Pφ`. To collect simulated `observation` samples, `simulation parameters` (`ξ`) are sampled from `Pφ` [source](https://arxiv.org/abs/1810.05687)* |
+
+| ![](media/2019_chebotar_7.png) | 
+|:--:| 
+| *`simulation parameter distribution` [source](https://arxiv.org/abs/1810.05687)* |
+
+| ![](media/2019_chebotar_8.png) | 
+|:--:| 
+| *`simulation parameter distribution` [source](https://arxiv.org/abs/1810.05687)* |
+
+motivation
+- `domain randomization` requires a **significant expertise** and **tedious manual fine-tuning** to design the `simulation parameter distribution`
+- combine `system identification` and `dynamics randomization`
+
+ideas
+- **do not manually tune** the randomization of simulations
+  - automate the learning of the **`simulation parameter distribution`**
+
+how to update the parameters of the `simulation parameter distribution` (`Pφ`)?
+- goal: bring `observations` induced by the `pi`(`Pφ`) closer to the `observations` of the real world
+- minimization problem
+  - `cost` = `Dist`(`obs-real`, `obs-sim`) 
+- > "It should be noted that the **inputs** of the policy `pi`(`θ`, `pφ`) and observations used to compute `D`(`τ-obs`-`ξ` , `τ-obs-real`) are not required to be the same"
+  - _but the initial `state` yes? is this open loop?_
+
+real world setting:
+- no need for **exact replication** of the **real world environment**
+  - no need for `rewards`
+  - partial `observations` is fine
+- > "we use object tracking with [`DART`](http://www.roboticsproceedings.org/rss10/p30.pdf) to continuously **track the 3D positions** of the peg in the swing-peg-in-hole task"
+
+training iterations
+- the RL training can be **sped up** by **initializing the policy** with the weights from the previous `SimOpt` iteration
+  - PPO iterations from `200` to `10` after the first `SimOpt` iteration
+
+MDP
+- `action`
+  - joint velocity (`7-dof`)
+  - gripper command
+  - _`dt` = ?_
+- `swing-peg-in-hole`
+  - `obs`
+    - joint configurations _???_
+    - 3D position of the peg
+    - :warning: _the `goal` position (hole) is not observed -> the `policy` is specific to one setting_
+  - `reward`
+    - distance peg-hole
+    - angle alignment with the hole
+    - a binary reward for solving the task
+  - params
+    - peg size
+    - rope properties
+    - size of the peg box
+- `cabinet drawer`
+  - `obs` (10 dim)
+    - joint angles
+    - 3D position of the cabinet drawer handle
+  - `reward`
+    - distance penalty between the handle and end-effector positions
+    - the angle alignment of the end-effector and the drawer handle
+    - the opening distance of the drawer
+    - an indicator function ensuring that both robot fingers are on the handle
+  - params
+    - `position.x` of the cabinet
+
+simulator
+- > [`FleX`](https://developer.nvidia.com/flex) is a particle based simulation technique for real-time visual effects.
+  - _predecessor of `IsaacSim`?_
+
+related works
+- > [`EPOpt`](https://arxiv.org/pdf/1610.01283.pdf) ([`video`](https://www.youtube.com/watch?v=w1YJ9vwaoto)) (**ensemble** optimization approach) optimizes a **risk-sensitive objective** to obtain robust policies, whereas we optimize the **average performance** which is a **risk-neutral** objective
+
+</details>
+
+---
+
+**`"Data-efficient Domain Randomizationwith Bayesian Optimization"`**
+
+- **[** `2021` **]**
+  **[[:memo:](https://arxiv.org/pdf/2003.02471.pdf)]**
+  **[[🎞️](https://www.youtube.com/watch?v=V1KZmIcMLt0)]**
+  **[[️:octocat:](https://github.com/famura/SimuRLacra)]**
+- **[** _`ball-in-a-cup`, `domain randomization`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2021_muratore_1.png) | 
+|:--:| 
+| *a `dynamic parameter` is introduced, it influences the `initial state` and the `transition` function. The expectation __over all domain parameters__ is to be maximized -> the `policy` should be __robust to shifts__ in the __`domain parameter distribution`__ [source](https://www.youtube.com/watch?v=V1KZmIcMLt0)* |
+
+| ![](media/2021_muratore_1.gif) | 
+|:--:| 
+| *top=training: same __seed__ and __architecture__, the left __exploits the simulator__,  - not transferring, the right uses `BayRn` and is more conservative and robust [source](https://www.youtube.com/watch?v=V1KZmIcMLt0)* |
+
+agents can exploit the simulator / the physics engine
+- overfitting to features which do not occur in the real world
+
+how is the `domain parameter distribution` updated?
+- based on sparse real-world data
+- using bayesian tools (Gaussian Process)
+
+this is not `system identifaction`
+- we do not care if the **parameters match the reality**
+- instead, we care about the performance in real world
+
+[`SimuRLacra`](https://github.com/famura/SimuRLacra)
+- a Python/C++ framework for **RL from randomized physics simulations**
+
+</details>
+
+---
+
+**`"Cyclic Policy Distillation: Sample-Efficient Sim-to-Real Reinforcement Learning with Domain Randomization"`**
+
+- **[** `2022` **]**
+  **[[:memo:](https://arxiv.org/abs/2207.14561)]**
+- **[** _`domain randomization`, `sim2real`, `policy distillation`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2022_kadokawa_5.png) | 
+|:--:| 
+| *main idea [source](https://arxiv.org/abs/2207.14561)* |
+
+| ![](media/2022_kadokawa_4.png) | 
+|:--:| 
+| *cyclic transitions [source](https://arxiv.org/abs/2207.14561)* |
+
+| ![](media/2022_kadokawa_6.png) | 
+|:--:| 
+| *algorithm: the `value function` `Q(n)` of `env.n` is transferred to the __neighbouring environment__. Could a `policy` be transferred instead (making `on-policy` possible)? [source](https://arxiv.org/abs/2207.14561)* |
+
+| ![](media/2022_kadokawa_1.png) | 
+|:--:| 
+| *real-world task [source](https://arxiv.org/abs/2207.14561)* |
+
+| ![](media/2022_kadokawa_2.png) | 
+|:--:| 
+| *`observation` space [source](https://arxiv.org/abs/2207.14561)* |
+
+| ![](media/2022_kadokawa_3.png) | 
+|:--:| 
+| *parameters randomized to help domain transfer [source](https://arxiv.org/abs/2207.14561)* |
+
+motivation
+- `sim-to-real` (for the `dynamics`, not the `observation`)
+- efficient
+- stable
+
+idea
+- **subdomains** (with varying parameters, e.g. `gravity`, `friction` ...) are **not selected _randomly_**
+  - otherwise, the gap of subdomains in distillation can be large, making the learning results **unstable** and sample-inefficient
+  - the subdomains with **adjacent index numbers** should be set up so that their **randomization ranges** are **similar**
+- wait for all `sub.pi` to converge before distilling into a `global.pi`
+
+"Cyclic Policy Distillation" (`CPD`)
+- **"Policy Distillation"**
+  - **transfer learned knowledge** between local policies in **divided subdomains**
+    - the **dividing number `N`** controls the tradeoff between the **learning stability** and the **sample efficiency**
+  - final integration of all local policies into a single **global policy**
+    - learn to predict the same `action` distribution given an `observation`
+    - `loss` = sum of `KL-div` between [`pi-g(s, a)`] and [`pi-n(s, a)`]
+- "Cyclic"
+  - transfer knowledge between **_adjacent_ subdomains**
+
+monotonic improvement (`MI`) to update `pi-N`
+- `loss` = `loss-RL` + `loss-MI`
+  - `loss-MI` = KL-divergence between [`pi-N`] and [a weighted combination of `pi-N` and `pi-N'`]
+- weight = `m`
+  - `m` = `0` means neighboring local policies are **not exploited** for learning
+  - `m` = 1 means neighboring local policies are **copied**
+
+real-world experiment
+- no need to model the full robot: **only** the **robot’s fingertip** is simulated
+  - because, in the real-world environment, the robot’s kinematics do not affect the task achievement
+
+- parameters
+  - `ball-radius`, `gravity`, `friction-coefficient`, `ball-mass`
+  - balls move in strange directions when deformed by the robot’s physical interaction
+
+limits
+- what simulator??
+- `actor critic` methods: `SAC` but not `PPP`
+- same task: all domains share the same reward function
+
+</details>
+
+# :chopsticks: tasks examples
+
+**`"cartpole"`**
+
+- **[[:memo:](https://www.gymlibrary.dev/environments/classic_control/cart_pole/)]**
+  **[[:octocat:](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py#enroll-beta)]**
+- **[** _`classic control`, `gym`, `task example`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2018_inverted_pendulum_1.gif) | 
+|:--:| 
+| *with `PID` [source](https://www.youtube.com/watch?v=B4E9tGmONn0)* |
+
+| ![](media/2018_inverted_pendulum_2.gif) | 
+|:--:| 
+| *with `MPC` or `LQR` controller? [source](https://blog.arduino.cc/2018/05/23/zipy-is-a-homebrew-inverted-pendulum/)* |
+
+[`gym.CartPoleEnv`](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py)
+- the `dynamics` is modelled following [this paper](https://coneural.org/florian/papers/05_cart_pole.pdf)
+  - the `action` represents a `force` and is converted to `acceleration`s
+  - the `acceleration`s are used in integrators to derive `speed` and `position`
+
+| Num | Action                 |
+|-----|------------------------|
+| 0   | Push cart to the left  |
+| 1   | Push cart to the right |
+
+```python
+self.force_mag = 10  # N      
+      
+force = self.force_mag if action == 1 else -self.force_mag
+costheta = math.cos(theta)
+sintheta = math.sin(theta)
+
+# For the interested reader:
+# https://coneural.org/florian/papers/05_cart_pole.pdf
+temp = (force + self.polemass_length * theta_dot**2 * sintheta) / self.total_mass
+thetaacc = (self.gravity * sintheta - costheta * temp) / (
+    self.length * (4.0 / 3.0 - self.masspole * costheta**2 / self.total_mass)
+)
+xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
+
+if self.kinematics_integrator == "euler":
+    x = x + self.tau * x_dot
+    x_dot = x_dot + self.tau * xacc
+    theta = theta + self.tau * theta_dot
+    theta_dot = theta_dot + self.tau * thetaacc
+else:  # semi-implicit euler
+    x_dot = x_dot + self.tau * xacc
+    x = x + self.tau * x_dot
+    theta_dot = theta_dot + self.tau * thetaacc
+    theta = theta + self.tau * theta_dot
+
+self.state = (x, x_dot, theta, theta_dot)
+```
+
+_what `delta-t`?_
+- `20 ms` in [`gym`](https://github.com/openai/gym/blob/dcd185843a62953e27c2d54dc8c2d647d604b635/gym/envs/classic_control/cartpole.py#L97)
+
+</details>
+
+---
+
+**`"Reinforcement Learning of Motor Skills using Policy Search and Human Corrective Advice"`**
+
+- **[** `2018` **]**
+  **[[:memo:](https://www.ias.informatik.tu-darmstadt.de/uploads/Alumni/JensKober/IJRR__Revision_.pdf)]**
+  **[[🎞️](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)]**
+- **[** _`ball-in-a-cup`, `task example`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2018_celemin_1.gif) | 
+|:--:| 
+| *description [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
+
+</details>
+
+# :point_up: not (classical) RL
+
+**`"TossingBot: Learning to Throw Arbitrary Objects with Residual Physics"`**
+
+- **[** `2019` **]**
+  **[[:memo:](https://arxiv.org/abs/1903.11239)]**
+  **[[🎞️](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)]**
+  **[[🎞️](https://www.youtube.com/watch?v=-O-E1nFm6-A)]**
+
+- **[** _`not RL`, `1-step`, `policy distillation`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2019_zeng_1.gif) | 
+|:--:| 
+| *description [source](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)* |
+
+**`1`-step supervised** learning where the "ground truth" is the **result of the trial**
+
+authors of the [`Transporter Networks: Rearranging the Visual World for Robotic Manipulation`](https://transporternets.github.io/)
+
+</details>
+
+---
+
+**`"PaLM-E: An Embodied Multimodal Language Model"`**
+
+- **[** `2023` **]**
+  **[[:memo:](https://palm-e.github.io/assets/palm-e.pdf)]**
+  **[[🎞️](https://palm-e.github.io/)]**
+- **[** _`not RL`, `LLM`_ **]**
+
+:warning: not RL : 
+
+<details>
+  <summary>Click to expand</summary>
+
+> Given `<img>`
+> Q: How to grasp the green object?
+> A: First grasp the orange object and place it on the table, then grasp the green object.
+
+The low-level policies are also obtained with [[`Deep Visual Reasoning: Learning to Predict Action Sequences for Task and Motion Planning from an Initial Scene Image`](https://arxiv.org/abs/2006.05398)][[🎞](https://www.youtube.com/watch?v=3Nguz6sg_1M)]
+
+| ![](media/2023_driess_1.gif) | 
+|:--:| 
+| *description [source](https://palm-e.github.io/)* |
+
+</details>
+
+---
+
+**`"High Acceleration Reinforcement Learning for Real-World Juggling with Binary Rewards"`**
+
+- **[[:memo:](https://arxiv.org/abs/2010.13483)]**
+  **[[🎞️](https://sites.google.com/view/jugglingbot)]**
+- **[** _`no sim`, `1-step`, `expert init`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2020_ploeger_1.gif) | 
+|:--:| 
+| *the training on the **single real robot** takes up to `5 h`: **`20` optimization steps** are performed. For each, `25` rollouts are performed. [source](https://sites.google.com/view/jugglingbot)* |
+
+| ![](media/2020_ploeger_1.png) | 
+|:--:| 
+| *a **normal distribution** (`mu`,`co-var`) from which parameters are sampled at the start of each rollout. These parameters define the `4` switching points, called **`via-points`**, between the `4` juggling movements. A **`PD` controller** computes the torques to follow the **spline** fitted on these `4` `via-points`. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_2.png) | 
+|:--:| 
+| *the **end-effector helps** to passively compensate for minor differences in ball trajectories. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_3.png) | 
+|:--:| 
+| *the **initialization** of the `via-points` is key (since the **`reward` is sparse**) and requires **hand-tuning** and **engineering**. [source](https://arxiv.org/abs/2010.13483)* |
+
+| ![](media/2020_ploeger_4.png) | 
+|:--:| 
+| *__one-step `MDP`__: the current `mu`, `co-var` define a `Normal` distribution. Parameters are sampled to **generated the `4` via-points**. A **spline** is fitted. A **`PD` controller** tracks this trajectory. [source](https://arxiv.org/abs/2010.13483)* |
+
+_RL?_
+- **one-step** MDP
+- **no interaction** with the environment
+- **no `observation`!!**
+- > "This framing is identical to a **bandit setting** with high-dimensional and continuous `actions`"
+- _to me_:
+  - a **control problem**, where
+    - **initial parameters** are already good (manually tuned)
+    - **parameters are optimized** with a complex search procedure
+
+task
+- `2`-ball juggling
+- high accelerations required: of up to `8 g`
+- [historic overview of robot juggling](https://www.youtube.com/watch?v=2ZfaADDlH4w)
+
+hw
+- [Barrett WAM manipulator](https://advanced.barrett.com/wam-arm-1)
+  - `4`-DoF
+  - **no simulation** possible:
+    - > "For the **tendon driven** `Barrett WAM`, rigid-body-simulators also cannot model the **dominating cable dynamics** at high accelerations"
+- [`optitrack`](https://optitrack.com/) ball tracker
+  - not perfect though:
+  - > "we had a hard time achieving good tracking performance during the experiments due to the wear and tear on the reflective tape and the frequent occlusions"
+- juggling balls
+  - `75 mm`
+  - [Russian style](https://juggle.fandom.com/wiki/Russian_style_juggling_balls):
+    - hollow plastic shell: **do not deform**
+    - partially filled with `37.5 g` of sand: **do not bounce**
+- end-effector designed to make the task **robust**
+  - the **funnel-shaped** end-effector passively compensates for minor differences in ball trajectories
+
+ideas
+- **before** the episode
+  - define a **normal distribution** from the current estimated `mu` and `co-var` (**multivariate**)
+  - **sample parameters** to define **`4` "via-points"**
+  - note: this is the only time in the episode that `actions` are taken (afterwards **open-loop tracking** control)
+  - compute a **cubic spline** from them (interpolation)
+- in **transient state** = **stroke-based** movement
+  - initial **stroke movement** that quickly enters the limit cycle without dropping a ball
+    - ???
+    - **hand-tuned**
+  - the second ball is released via a launching mechanism `3 m` above the floor (`1.8 m` on `fig.2`)
+- in **steady state**:
+  - keep tracking this spline (interpolated via-points) with a **`PD` controller** with **gravity compensation**
+  - terminate on a ball fall
+  - truncation after `10 s` juggle
+- after the episode
+  - estimate performance with **binary `reward`** (sparse):
+    - `+1` each time one ball reaches `60 cm`
+- after `20` episodes:
+  - optimize the **parameters distribution** and repeat
+
+_how many trials?_
+- `500` rollouts:
+  - `25` randomly sampled parameters executed per "episode"
+  - `20` "episodes"
+- `56 min` of **experience**
+- the **learning** still takes **up to `5 h`**
+
+open-loop
+- `closed-loop` is difficult:
+  - **noisy ball observation** and potential **outliers** might **cause instabilities**
+- human can do `open-loop`:
+  - > "well trained jugglers can juggle basic patterns **blindfolded**"
+
+`via point` parameters used to define a **cubic spline**
+- position `qi`
+- velocity `q˙i`
+  - enforced to be `0` (which reduces the dimensionality)
+- duration `ti`
+
+safety
+- safer to **predict** a trajectory, rather than **torques**
+  - **tight box constraints** in **joint space** are enforced for the desired trajectory
+  - against **self-collisions** and hitting the **joint limits**
+
+**`policy` (parameter distribution) initialization**
+- **expert** initialization
+- **engineering required!**
+- initially the robot on average achieves **between `1` to `3` repeated catches**
+- **`via-points` are manually initialized**
+  - advantage: they are **interpretable**
+  - > "tuning the **stroke-based movement** is the hardest part of the manual parameter tuning"
+
+policy optimizer
+- information-theoretic policy search approach
+  - **_episodic Relative Entropy Policy Search_ (`eREPS`)**
+- quite complex!
+- > "We use `eREPS` instead of `EM-based` or `gradient-based` policy search as the **`KL` constraint** prevents premature convergence and **large, possibly unsafe, jumps** of the `policy` mean"
+
+sparse rewards
+- the **delay** between `action` and `reward`, i.e., **"credit assignment"**, is a challenge:
+  - a **bad `action`** within the throwing will cause a drop, i.e. `reward = 0`, **seconds after the `action`**
+- requires a **very good `policy` initialization!**
+
+</details>
+
+---
+
+**`"Excavation Reinforcement Learning Using Geometric Representation"`**
+
+- **[** `2022` **]**
+  **[[:memo:](https://www.semanticscholar.org/paper/Excavation-Reinforcement-Learning-Using-Geometric-Lu-Zhu/f3bad843e86a37dd29e86ef5582eced26c82e028)]**
+  **[[🎞️](https://drive.google.com/drive/folders/19n-V573He55i6WqnoINukvoaU1oqSUmQ)]**
+- **[** _`1-step`, `franka emika`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2022_lu_1.gif) | 
+|:--:| 
+| *description [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
+
+| ![](media/2022_lu_2.png) | 
+|:--:| 
+| *`action`: the excavation trajectory `T` is simplified to its **attacking pose**: (`x`, `y`, `α`) [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
+
+| ![](media/2022_lu_3.png) | 
+|:--:| 
+| *`state`: feature extraction is done before the `RL`: predict the `normal`, `curvature`, and the `number of objects` in the digging tray [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
+
+motivations:
+
+- long-term goal
+  - maximize the accumulative volume of the excavated rigid objects
+  - plan N digging trajectories, not just one excavation
+- learn a `280-dim` geometric representation for point clouds, which allows us to use a small policy network
+  - based on PointNet++
+  - in: point cloud
+  - out: its normal, curvature, and the number of objects in the digging tray
+
+excavation
+- `attacking`
+- `digging`
+- `dragging`
+- `closing`
+- `lifting`
+- we **simplify** the excavation trajectory `T` as its **attacking pose**: (`x`, `y`, `α`), which we also refer to as the **attacking pose**
+  - **the other parameters (`dragging length`, `lifting h`, `closing angle`) are fixed**
+
+real-world
+- > "resistive force during rigid objects excavation can be large and only limited amount of force and torque can be applied by the Franka arm in real world"
+
+</details>
+
+# :books: theory & reviews
+
+**`"Deep Reinforcement Learning with Real-World Data"`**
+
+- **[** `2022` **]**
+  **[[🎞️](https://www.youtube.com/watch?v=0Kw-VTym9Pg)]**
+- **[** _`offline RL`, `data-driven RL`, `conservative Q-learning`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+| ![](media/2022_levine_1.png) | 
+|:--:| 
+| *do not try to copy the garbage, rather try to **understand the `dynamics`**, i.e. the **consequences of decisions** [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
+
+| ![](media/2022_levine_2.png) | 
+|:--:| 
+| *extract the **best parts** of **suboptimal demonstrations** [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
+
+| ![](media/2022_levine_3.png) | 
+|:--:| 
+| *how to know if this is good if __you do see it__ in the data? it can be __dangerous__, but also __just better [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
+
+| ![](media/2022_levine_4.gif) | 
+|:--:| 
+| *the big trained `PTR` can be used either for __fine-tuning__ or for initializing __new tasks__ [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
+
+additional resource
+- [similar talk at GTC23](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51826/)
+- [`Imitation learning vs. offline reinforcement learning`](https://www.youtube.com/watch?v=sVPm7zOrBxM)
+- [`Reinforcement Learning Pretraining for Reinforcement Learning Finetuning`](https://www.youtube.com/watch?v=zg6Tip6s_mA)
+- [`Offline Reinforcement Learning: From Algorithms to Practical Challenges`](https://sites.google.com/view/offlinerltutorial-neurips2020/home)
+- [Chelsea Finn's intervention in `Dexterity: Machine Learning for Robot Manipulation and Dexterity`](https://youtu.be/Vj50Z7az3TY?t=642)
+
+**data-driven `RL`**
+- as a way to use "large + cheap + garbage" data
+- **do not to learn the `decision`**: _what to do?_
+  - but rather **understand the `consequences`**: _how does the world work?_
+  - understand the **world dynamics** from **suboptimal (w.r.t. our `task`) samples**
+- then define a `task`
+  - small supervised work: human-designed the `reward function`
+
+`RL` vs `supervised-learning`
+- about making **`decisions`** considering their consequences
+  - not just `predictions` (learning `p(x)`) that ignore the **consequences**
+- **active online** learning
+  - require an interaction: `online` is costly
+    - in a dialogue, you would have to talk to people in real-time
+
+`offline RL` vs `IL`
+- you do not want to **copy the garbage**
+- rather **copy the best parts** of each suboptimal data, and **generalize**
+
+issue with `offline RL`
+- **counterfactual queries**
+  - _"is it a good idea if I suddenly turn on the highway?"_, this **has not happened in the dataset** (out-of-distribution)
+  - `online RL` could try
+  - `offline RL` should, at the same time
+    - **generalize** to get better than the data
+    - **stay safe**
+- `distributional shift`
+  - apply naive `Q-learning` does not work
+  - **over-estimation of `Q`**
+    - predicted `Q-values` are huge
+    - learnt `pi returns` are bad
+  - it resembles **adversarial** example
+    - ??
+- sol: **`conservative Q-learning`**
+  - detect where (which `action`) the `Q-value` is over-estimated compared to the current `Q-value`, and reduce it
+  - a regularization similar to **adversarial** training process
+
+applications: **few-shots**
+- **fine-tuning** on task already present in the data
+- **pre-training** (initialization) of down-stream tasks
+
+[`PTR`: "Pre-Training for Robot"](https://sites.google.com/view/ptr-robotlearning)
+- trained on [Bridge Data](https://sites.google.com/view/bridgedata)
+- learn 1 `policy`, on all tasks (different domains)
+  - conditioned with one-hot vector (task)
+- **fine-tune** or **training** on a **new down-stream task**, while **preventing forgetting** (`batch-mixing`)
+
+</details>
+
+---
+
 **`"Robot Learning from Randomized Simulations : A Review"`**
 
 - **[** `2022` **]**
@@ -948,449 +1253,119 @@ other concepts
 
 ---
 
-**`"Data-efficient Domain Randomizationwith Bayesian Optimization"`**
-
-- **[** `2021` **]**
-  **[[:memo:](https://arxiv.org/pdf/2003.02471.pdf)]**
-  **[[🎞️](https://www.youtube.com/watch?v=V1KZmIcMLt0)]**
-  **[[️:octocat:](https://github.com/famura/SimuRLacra)]**
-- **[** _`ball-in-a-cup`, `domain randomization`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2021_muratore_1.png) | 
-|:--:| 
-| *a `dynamic parameter` is introduced, it influences the `initial state` and the `transition` function. The expectation __over all domain parameters__ is to be maximized -> the `policy` should be __robust to shifts__ in the __`domain parameter distribution`__ [source](https://www.youtube.com/watch?v=V1KZmIcMLt0)* |
-
-| ![](media/2021_muratore_1.gif) | 
-|:--:| 
-| *top=training: same __seed__ and __architecture__, the left __exploits the simulator__,  - not transferring, the right uses `BayRn` and is more conservative and robust [source](https://www.youtube.com/watch?v=V1KZmIcMLt0)* |
-
-agents can exploit the simulator / the physics engine
-- overfitting to features which do not occur in the real world
-
-how is the `domain parameter distribution` updated?
-- based on sparse real-world data
-- using bayesian tools (Gaussian Process)
-
-this is not `system identifaction`
-- we do not care if the **parameters match the reality**
-- instead, we care about the performance in real world
-
-[`SimuRLacra`](https://github.com/famura/SimuRLacra)
-- a Python/C++ framework for **RL from randomized physics simulations**
-
-</details>
-
----
-
-**`"Closing the sim-to-real Loop: Adapting simulation randomization with real world experience"`**
-
-- **[** `2019` **]**
-  **[[:memo:](https://arxiv.org/abs/1810.05687)]**
-  **[[🎞️](https://www.youtube.com/watch?v=nilcJY5Kdt8)]**
-  **[[🎞️](https://sites.google.com/view/simopt)]**
-- **[** _`sim2real`, `domain randomization`, `simulation parameter distribution`, `franka emika`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2019_chebotar_1.gif) | 
-|:--:| 
-| *iterations: set params, learn a `pi` in `sim`, collect (few) samples using this `pi` in real world, compare `real` and `sim` samples, adjust params, etc. [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-| ![](media/2019_chebotar_2.gif) | 
-|:--:| 
-| *it is often disadvantageous to use __overly wide distributions__ of simulation parameters as they can include scenarios with __infeasible solutions__ [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-| ![](media/2019_chebotar_3.gif) | 
-|:--:| 
-| *updating the parameters of the `simulator parameters distribution` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-| ![](media/2019_chebotar_4.gif) | 
-|:--:| 
-| *`swing-peg-in-hole` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-| ![](media/2019_chebotar_5.gif) | 
-|:--:| 
-| *`cabinet drawer` [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
-
-| ![](media/2019_chebotar_6.png) | 
-|:--:| 
-| *`simulation parameter distribution` is denoted by `Pφ`. To collect simulated `observation` samples, `simulation parameters` (`ξ`) are sampled from `Pφ` [source](https://arxiv.org/abs/1810.05687)* |
-
-| ![](media/2019_chebotar_7.png) | 
-|:--:| 
-| *`simulation parameter distribution` [source](https://arxiv.org/abs/1810.05687)* |
-
-| ![](media/2019_chebotar_8.png) | 
-|:--:| 
-| *`simulation parameter distribution` [source](https://arxiv.org/abs/1810.05687)* |
-
-motivation
-- `domain randomization` requires a **significant expertise** and **tedious manual fine-tuning** to design the `simulation parameter distribution`
-- combine `system identification` and `dynamics randomization`
-
-ideas
-- **do not manually tune** the randomization of simulations
-  - automate the learning of the **`simulation parameter distribution`**
-
-how to update the parameters of the `simulation parameter distribution` (`Pφ`)?
-- goal: bring `observations` induced by the `pi`(`Pφ`) closer to the `observations` of the real world
-- minimization problem
-  - `cost` = `Dist`(`obs-real`, `obs-sim`) 
-- > "It should be noted that the **inputs** of the policy `pi`(`θ`, `pφ`) and observations used to compute `D`(`τ-obs`-`ξ` , `τ-obs-real`) are not required to be the same"
-  - _but the initial `state` yes? is this open loop?_
-
-real world setting:
-- no need for **exact replication** of the **real world environment**
-  - no need for `rewards`
-  - partial `observations` is fine
-- > "we use object tracking with [`DART`](http://www.roboticsproceedings.org/rss10/p30.pdf) to continuously **track the 3D positions** of the peg in the swing-peg-in-hole task"
-
-training iterations
-- the RL training can be **sped up** by **initializing the policy** with the weights from the previous `SimOpt` iteration
-  - PPO iterations from `200` to `10` after the first `SimOpt` iteration
-
-MDP
-- `action`
-  - joint velocity (`7-dof`)
-  - gripper command
-  - _`dt` = ?_
-- `swing-peg-in-hole`
-  - `obs`
-    - joint configurations _???_
-    - 3D position of the peg
-    - :warning: _the `goal` position (hole) is not observed -> the `policy` is specific to one setting_
-  - `reward`
-    - distance peg-hole
-    - angle alignment with the hole
-    - a binary reward for solving the task
-  - params
-    - peg size
-    - rope properties
-    - size of the peg box
-- `cabinet drawer`
-  - `obs` (10 dim)
-    - joint angles
-    - 3D position of the cabinet drawer handle
-  - `reward`
-    - distance penalty between the handle and end-effector positions
-    - the angle alignment of the end-effector and the drawer handle
-    - the opening distance of the drawer
-    - an indicator function ensuring that both robot fingers are on the handle
-  - params
-    - `position.x` of the cabinet
-
-simulator
-- > [`FleX`](https://developer.nvidia.com/flex) is a particle based simulation technique for real-time visual effects.
-  - _predecessor of `IsaacSim`?_
-
-related works
-- > [`EPOpt`](https://arxiv.org/pdf/1610.01283.pdf) ([`video`](https://www.youtube.com/watch?v=w1YJ9vwaoto)) (**ensemble** optimization approach) optimizes a **risk-sensitive objective** to obtain robust policies, whereas we optimize the **average performance** which is a **risk-neutral** objective
-
-</details>
-
----
-
-**`"Excavation Reinforcement Learning Using Geometric Representation"`**
+**`"Time limits in reinforcement learning"`**
 
 - **[** `2022` **]**
-  **[[:memo:](https://www.semanticscholar.org/paper/Excavation-Reinforcement-Learning-Using-Geometric-Lu-Zhu/f3bad843e86a37dd29e86ef5582eced26c82e028)]**
-  **[[🎞️](https://drive.google.com/drive/folders/19n-V573He55i6WqnoINukvoaU1oqSUmQ)]**
-- **[** _`1-step`, `franka emika`_ **]**
+  **[[:memo:](https://arxiv.org/pdf/1712.00378.pdf)]**
+  **[[🎞️](https://www.youtube.com/watch?v=UUqidOSMKLE)]**
+  **[[🎞️](https://fabiopardo.github.io/posters/time_limits_in_rl.pdf)]**
+  **[[🎞️](https://sites.google.com/view/time-limits-in-rl)]**
+- **[** _`Markov`, `time-awareness`, `truncation`, `termination`, `bootstrappig`, `episode`, `gymnasium`_ **]**
 
 <details>
   <summary>Click to expand</summary>
 
-| ![](media/2022_lu_1.gif) | 
+| ![](media/2022_pardo_1.gif) | 
 |:--:| 
-| *description [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
+| *The `infinite cube pusher` task [source](https://youtu.be/ckgVLgFi-sc?t=56)* |
 
-| ![](media/2022_lu_2.png) | 
+| ![](media/2022_pardo_1.png) | 
 |:--:| 
-| *`action`: the excavation trajectory `T` is simplified to its **attacking pose**: (`x`, `y`, `α`) [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
+| *in __`episodic`__ task, add `remaining-time` to `obs` // in __`non-episodic`__ task, make them `episodic` to __increase exploration__, but make sure to __boostrap when `truncating`__ to let the agent know that __more `rewards` would actually be available__ thereafter [source](https://arxiv.org/abs/1712.00378)* |
 
-| ![](media/2022_lu_3.png) | 
+| ![](media/2022_pardo_2.png) | 
 |:--:| 
-| *`state`: feature extraction is done before the `RL`: predict the `normal`, `curvature`, and the `number of objects` in the digging tray [source](https://drive.google.com/drive/folders/1rx1mcAEe8eVNy8omeNM3R794tgZ2rDBf)* |
-
-motivations:
-
-- long-term goal
-  - maximize the accumulative volume of the excavated rigid objects
-  - plan N digging trajectories, not just one excavation
-- learn a `280-dim` geometric representation for point clouds, which allows us to use a small policy network
-  - based on PointNet++
-  - in: point cloud
-  - out: its normal, curvature, and the number of objects in the digging tray
-
-excavation
-- `attacking`
-- `digging`
-- `dragging`
-- `closing`
-- `lifting`
-- we **simplify** the excavation trajectory `T` as its **attacking pose**: (`x`, `y`, `α`), which we also refer to as the **attacking pose**
-  - **the other parameters (`dragging length`, `lifting h`, `closing angle`) are fixed**
-
-real-world
-- > "resistive force during rigid objects excavation can be large and only limited amount of force and torque can be applied by the Franka arm in real world"
-
-</details>
-
----
-
-**`"Sim-to-Real Transfer of Robotic Control with Dynamics Randomization"`**
-
-- **[** `2018` **]**
-  **[[:memo:](https://arxiv.org/pdf/1710.06537.pdf)]**
-  **[[🎞️](https://www.youtube.com/watch?v=XUW0cnvqbwM)]**
-- **[** _`domain randomization`, `pushing task`, `privileged learninig`, `RNN`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2018_peng_1.png) | 
-|:--:| 
-| *only with information required to **infer the `dynamics`** are passed to the `LSTM` unit. Since the current `state` (`st`) is of particular importance for determining the appropriate `action` for the current timestep, a copy is also provided as input to the __feedforward__ branch [source](https://arxiv.org/pdf/1710.06537.pdf)* |
-
-| ![](media/2018_peng_2.png) | 
-|:--:| 
-| *randomized `dynamics` parameters [source](https://arxiv.org/pdf/1710.06537.pdf)* |
-
-| ![](media/2018_sudharsan13296_1.png) | 
-|:--:| 
-| *Hindsight Experience Replay (`HER`): instead of considering the **trajectory as a failure** wrt. the current `goal`, it can be seen as a **success** for a different `goal` - which is valuable to learn [source](https://github.com/sudharsan13296/Hands-On-Reinforcement-Learning-With-Python)* |
-
-| ![](media/2018_peng_1.gif) | 
-|:--:| 
-| *`95` parameters are randomized. Some at each `action` step, some at each `episode` [source](https://www.youtube.com/watch?v=XUW0cnvqbwM)* |
-
-| ![](media/2018_peng_2.gif) | 
-|:--:| 
-| *the system is robust to changes in contact `dynamics` (a packet of chips is attached to the bottom of the puck) [source](https://www.youtube.com/watch?v=XUW0cnvqbwM)* |
+| *`gymnasium` approach: distinguish `MDP`-`termination` and external-`truncation` [source](https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits)* |
 
 ideas
-- **low fidelity** simulator and **poor calibration / `SysID`** can be enough to fully learn in `sim` and successfully deploy into `real`
-- the `policy` is trained to adapt to a **wide-range of randomized environments** - hopefully it learns to adapt to yet another `env`: the **real `env`**.
-- ingredients to **prevent over-fitting** and enable transfer
-  - randomizing the `dynamics`
-  - adding noise to `observations`
-  - coping with the **latency of the controller**
-- > "With **domain randomization**, discrepancies between the `source` and `target` domains are modeled as **variability in the `source` domain**"
+- especially for `bootstrapping` methods 
+- [`episodic` task]
+  - respect Markov
+  - add `remaining time` to `observation`
+- [`time-unlimited` task]
+  - make it `episodic` (`timeout`) **during training** to help exploration
+  - but be careful: [`timeout` termination] `!=` [`env` (`MDP`) termination]
+  - therefore: `bootstrap` at `states` where `termination` is due to **time limits**
 
-task: **pushing**
-- > "pushing, a form of _**non-prehensile**_ manipulation, is an effective strategy for positioning and orienting objects that are too large or heavy to be grasped"
-- challenge: modeling the complex **contact dynamics** between surfaces
+note:
+- `bootstrapping` = using **estimated values** of `V[s+1]` to update the **estimate** of the `V[s]`
 
-hardware
-- tested on `7`-DOF [`Fetch Robotics`](https://fetchrobotics.com/) arm
-- the location of the puck is tracked using the [`PhaseSpace mocap`](https://www.phasespace.com/x2e-motion-capture/) system.
+case1: **time-_limited_** tasks
+- i.e. "episodic"
+  - the _maximum length_ of an episode is fixed
+- possible issues:
+  - **`state aliasing`**, i.e. unperceived remaining time
+    - a time-**unaware** agent has to act in a `POMDP` where `states` (that only differ by their **remaining time**) appear identical
+    - perception of **non-stationarity** of the `env`: the `terminations` due to **time limits** can only be **interpreted** as part of the **`env`'s stochasticity**
+    - infeasibility of correct **`credit assignment`**: **conflicting updates** for estimating the *`value` of the same `state`* result in an inaccurate average
+    - suboptimal policies and **instability**
+    - "out-of-reach cells leaking" (when `bootstrapping` `values` from `states` that were **out-of-reach**): letting the agent **falsely believe** that more `rewards` were available after
+- solution: **`time-awareness`** (`TA`)
+  - add a notion of the `remaining time` to the `observation`, to avoid violation of the **`Markov` property**
+  - learn to take **more risky** actions leading to higher expected returns as **approaching the time limit**
 
-`time` concepts in `MuJoCo` simulator
-- one episode = `100` **_control_** (`action`) steps
-- one _simulation_ timestep = `0.002s`
-- one _control_ timestep = `action duration` = multiple _simulation_ steps
-  - by default `20` _simulation_ steps = `dt0`
-- _how to **model the `latency`** of the real robot?_
-- **`action duration`** = `dt0 + eps`
-  - `eps` is sampled at **each step** from `exp(λ)`, with `λ` sampled at **each episode** from `[125, 1000] s−1` 
-- hence one **episode duration** = `100 * ~20 * 0.002` = `~4s`
+case2: **time-_unlimited_** tasks
+- indefinite period, possibly infinite
+  - no underlying `episodic` structure
+  - e.g. `Hopper-v1` / `highway`
+- `exploration` requires sufficiently **randomized initial `states`**
+  - therefore, **"partial episodes"**
+    - frequently `reset` the `env` to **diversify experiences**
+    - introduce `truncations` to learn from **time-limited interactions**
+  - but: the `time limits` are not part of the `env` and are **only used to facilitate learning**
+- idea/solution: **differentiate** between the types of `terminations`
+  - those from the `env` (e.g. `off-road`)
+    - do not boostrap!
+  - those due to `time limits` (`truncation` in `gymnasium`)
+    - boostrap
+    - `partial-episode bootstrapping` (`PEB`)
+    - otherwise: **forgetting** that more `rewards` would actually be available thereafter
+- note: `PEB` helps large `experience replay buffers`
 
-`MDP` formulation
-- `52`d `state` space:
-  - **arm joints**: positions, velocities
-  - **gripper**: position 
-  - **puck**: position, orientation, linear and angular velocities
-- `7`d `action` space:
-  - > "`actions` from the `policy` specify **target joint angles** for a `position controller`. Target angles are specified as **relative offsets** from the current joint rotations"
-  - _question: why caring about the `duration` between two `actions`? do they just wait for the move to finish between querying the agent for the next `action`?_ 
-    - > "The timestep between `actions` specifies the amount of time an **`action` is applied** before the policy is queried again to sample a new `action`. This serves as a simple model of the **latency** exhibited by the physical controller."
-    - _ok, I would understand if the `action` were a `torque`: the longer it is applied, the larger the changes. But with a target offset as `action`, the impact of the `action duration` does not make much sense to me, unless if the control is not blocking and can be interrupted/truncated._
-- **sparse** `rewards`
-  - > "designing a **dense** `reward` function can be challenging for more complex tasks, and may **bias the policy towards adopting less optimal behaviours**"
-  - the sparse `rewards` let the agent develops **clever strategies**
-    - > "these behaviours **emerged naturally** from the learning process using **only a _sparse binary_ `reward`**"
+[open question](https://youtu.be/UUqidOSMKLE?t=594) by Richard Sutton I guess:
+- `partial-episode bootstrapping` makes `on-policy` methods `off-policy`
+  - because the applied bootstrap (at `truncation`) uses estimates that **may not come from the current policy**
+  - _how to deal with that?_
 
-benefits of **`RNN`** (both in `Value` and `Policy`)
-- in the absence of direct knowledge of the parameters, the **`dynamics` can be inferred from a history** of past `states` and `actions`
-  - either: try to **explicitly identify** the parameters
-  - or: `SysID` can be **implicitly embedded** into a `policy`
-    - using a **recurrent** model `π(at|st, zt, g)`
-    - the **internal memory `zt = z(ht)` acts as a summary of past `states` and `actions`**, thereby providing a mechanism with which the policy can use to **infer the dynamics** of the system.
-- do not pass **all info** to the recurrent unit
-  - the **goal location `g`** does not hold any information regarding the `dynamics` of the system: therefore processed only by the feedforward branch.
-- trained with `Recurrent DPG` (`RDPG`)
-- **stacking** is **simpler** and not much worse
-  - **history of the `8` previously observed `states` and `actions`**
-  - `FeedForw + Hist` achieves `87%` success in `sim` against `91%` for the `LSTM`
+why do common **`time-unaware` agents** still often manage to perform relatively well?
+- if **`time limits` are so long** that timeouts are hardly ever experienced
+- if there are **clues in the `observations`** that are **correlated with time** (e.g. the `forward distance`)
+- if it is **not likely** to observe the **same `states` at different remaining times**
+- if the **`discount factor` is sufficiently small** to reduce the impact of the **confusion**
 
-**_omniscient_ critic** for **training efficiency**
-- similar to "privileged learninig" or [`Asymmetric Actor-Critic`](https://arxiv.org/abs/1710.06542)
-- the **`dynamics` parameters `µ`** are passed to the `Value function` receives as input, but not to the `policy`
-  - the `Value function` is used only during training, when `dynamics` parameters of the simulator are known
-  - this allow the `Value function` to provide more meaningful feedback for improving the policy
-
-**`HER` = Hindsight Experience Replay**
-- idea: instead of considering a **trajectory as a failure** for the current `goal`, it can be **considered it a success for a different `goal`**
-- **`HER` augments** the original training data recorded from rollouts of the policy **with additional data generated** from **replayed `goals`**, it requires **off-policy** learning
-
-**randomization**
-- _when?_
-  - either at the **start of each episode**
-    - > "a random set of **`dynamics` parameters** `µ` are sampled according to `ρµ` and held fixed for the duration of the episode"
-  - or at **each step**
-    - e.g. `action duration`, `observation noise`, `action` exploration noise
-- `95` randomized parameters
-  - **Mass** of each link in the robot’s body
-  - logarithmically sampled:
-  - Damping of each joint
-  - Mass, friction, and damping of the puck
-  - Height of the table
-  - Gains for the position controller
-  - Timestep between actions
-  - Observation noise
-    - independent Gaussian noise applied to each state feature
-    - **standard deviation** = **`5%` of the running std** of each feature
-- > "Parameters such as `mass`, `damping`, `friction`, and controller `gains` are **logarithmically sampled**, while other parameters are **uniformly sampled**"
-- > "Gaussian **`action` exploration noise** is added at every step with a standard deviation of `0.01 rad`"
-
-**system identification (`SysID`)**
-- often require **meticulous calibration** of the simulation to closely conform to the physical system
-- sometimes just impossible
-- here: the policies are able to adapt to significant **calibration error**.
-
-"universal" `policy`
-- `policy` and `rewards` are conditioned on the target (`goal` noted `g`)
+[`gymnasium` approach](https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits)
+- in old `gym`, **time limits** are incorrectly handled
+  - > "The `done` signal received (in previous versions of OpenAI Gym < 0.26) from `env.step` indicated whether an **episode has ended**. However, this `done` signal did not distinguish whether the `episode` ended due to **`termination` or `truncation`**"
+- new `gymnasium` distinguishes
+  - `termination` = `MDP` end
+    - **terminal `states`** are defined as part of the **`env` definition**
+    - task `success`, task `failure`, robot falling down, etc.
+    - [in `finite-horizon` `env`]
+      - episodes ending due to **a time-limit inherent to the `env`**
+      - here the `remaining time` should be added to the `observation`
+  - **`truncation` = external interruption**
+    - not defined by the `MDP`
+      - e.g. **time-limit**, a robot going **out of bounds**
+    - [`infinite-horizon` `env`]
+      - `truncation` is needed
+      - > "We cannot **wait forever** for the **episode to complete**, so we set a **practical time-limit** after which we forcibly halt the episode."
 
 </details>
 
 ---
 
-**`"Cyclic Policy Distillation: Sample-Efficient Sim-to-Real Reinforcement Learning with Domain Randomization"`**
+**`"Curriculum Learning for Reinforcement Learning Domains: A Framework and Survey"`**
 
-- **[** `2022` **]**
-  **[[:memo:](https://arxiv.org/abs/2207.14561)]**
-- **[** _`domain randomization`, `sim2real`, `policy distillation`_ **]**
-
-<details>
-  <summary>Click to expand</summary>
-
-| ![](media/2022_kadokawa_5.png) | 
-|:--:| 
-| *main idea [source](https://arxiv.org/abs/2207.14561)* |
-
-| ![](media/2022_kadokawa_4.png) | 
-|:--:| 
-| *cyclic transitions [source](https://arxiv.org/abs/2207.14561)* |
-
-| ![](media/2022_kadokawa_6.png) | 
-|:--:| 
-| *algorithm: the `value function` `Q(n)` of `env.n` is transferred to the __neighbouring environment__. Could a `policy` be transferred instead (making `on-policy` possible)? [source](https://arxiv.org/abs/2207.14561)* |
-
-| ![](media/2022_kadokawa_1.png) | 
-|:--:| 
-| *real-world task [source](https://arxiv.org/abs/2207.14561)* |
-
-| ![](media/2022_kadokawa_2.png) | 
-|:--:| 
-| *`observation` space [source](https://arxiv.org/abs/2207.14561)* |
-
-| ![](media/2022_kadokawa_3.png) | 
-|:--:| 
-| *parameters randomized to help domain transfer [source](https://arxiv.org/abs/2207.14561)* |
-
-motivation
-- `sim-to-real` (for the `dynamics`, not the `observation`)
-- efficient
-- stable
-
-idea
-- **subdomains** (with varying parameters, e.g. `gravity`, `friction` ...) are **not selected _randomly_**
-  - otherwise, the gap of subdomains in distillation can be large, making the learning results **unstable** and sample-inefficient
-  - the subdomains with **adjacent index numbers** should be set up so that their **randomization ranges** are **similar**
-- wait for all `sub.pi` to converge before distilling into a `global.pi`
-
-"Cyclic Policy Distillation" (`CPD`)
-- **"Policy Distillation"**
-  - **transfer learned knowledge** between local policies in **divided subdomains**
-    - the **dividing number `N`** controls the tradeoff between the **learning stability** and the **sample efficiency**
-  - final integration of all local policies into a single **global policy**
-    - learn to predict the same `action` distribution given an `observation`
-    - `loss` = sum of `KL-div` between [`pi-g(s, a)`] and [`pi-n(s, a)`]
-- "Cyclic"
-  - transfer knowledge between **_adjacent_ subdomains**
-
-monotonic improvement (`MI`) to update `pi-N`
-- `loss` = `loss-RL` + `loss-MI`
-  - `loss-MI` = KL-divergence between [`pi-N`] and [a weighted combination of `pi-N` and `pi-N'`]
-- weight = `m`
-  - `m` = `0` means neighboring local policies are **not exploited** for learning
-  - `m` = 1 means neighboring local policies are **copied**
-
-real-world experiment
-- no need to model the full robot: **only** the **robot’s fingertip** is simulated
-  - because, in the real-world environment, the robot’s kinematics do not affect the task achievement
-
-- parameters
-  - `ball-radius`, `gravity`, `friction-coefficient`, `ball-mass`
-  - balls move in strange directions when deformed by the robot’s physical interaction
-
-limits
-- what simulator??
-- `actor critic` methods: `SAC` but not `PPP`
-- same task: all domains share the same reward function
-
-</details>
-
----
-
-**`"TossingBot: Learning to Throw Arbitrary Objects with Residual Physics"`**
-
-- **[** `2019` **]**
-  **[[:memo:](https://arxiv.org/abs/1903.11239)]**
-  **[[🎞️](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)]**
-  **[[🎞️](https://www.youtube.com/watch?v=-O-E1nFm6-A)]**
-
-- **[** _`not RL`, `1-step`, `policy distillation`_ **]**
+- **[[:memo:](https://arxiv.org/pdf/2003.04960.pdf)]**
+- **[** _`todo`, `curriculum learning`_ **]**
 
 <details>
   <summary>Click to expand</summary>
 
-| ![](media/2019_zeng_1.gif) | 
+todo
+
+| ![](media/2020_narvekar_1.png) | 
 |:--:| 
-| *description [source](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)* |
-
-**`1`-step supervised** learning where the "ground truth" is the **result of the trial**
-
-authors of the [`Transporter Networks: Rearranging the Visual World for Robotic Manipulation`](https://transporternets.github.io/)
-
-</details>
-
----
-
-**`"PaLM-E: An Embodied Multimodal Language Model"`**
-
-- **[** `2023` **]**
-  **[[:memo:](https://palm-e.github.io/assets/palm-e.pdf)]**
-  **[[🎞️](https://palm-e.github.io/)]**
-- **[** _`not RL`, `LLM`_ **]**
-
-:warning: not RL : 
-
-<details>
-  <summary>Click to expand</summary>
-
-> Given `<img>`
-> Q: How to grasp the green object?
-> A: First grasp the orange object and place it on the table, then grasp the green object.
-
-The low-level policies are also obtained with [[`Deep Visual Reasoning: Learning to Predict Action Sequences for Task and Motion Planning from an Initial Scene Image`](https://arxiv.org/abs/2006.05398)][[🎞](https://www.youtube.com/watch?v=3Nguz6sg_1M)]
-
-| ![](media/2023_driess_1.gif) | 
-|:--:| 
-| *description [source](https://palm-e.github.io/)* |
+| *todo [source](https://arxiv.org/pdf/2003.04960.pdf)* |
 
 </details>
