@@ -3,14 +3,14 @@
 # :dart: scope and ambition
 
 centralize my notes on some works about
+- **robotics**
+  - here mostly robot arms
 - **_learning_** something
   - _learning-based_ as opposed to _hand-crafted_ control
   - mostly `reinforcement learning`
-  - !not all paper use learning!
-- **robotics**
-  - here mostly robot arms
+  - :warning: not all papers use _learning_
 - **real world**
-  - to see the concrete challenges of real-world deployment
+  - understand the concrete challenges of real-world deployment
 
 # :construction_worker: :construction: WIP
 
@@ -18,8 +18,8 @@ todo:
 - explore additional works
   - [Intelligent Autonomous Systems - TU Darmstadt](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
   - [OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
+- check papers
   - https://corl2022.org/previous-conferences/
-- 
 
 ---
 ---
@@ -180,7 +180,7 @@ actuator-net: training
 - not mentioned here, but in [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17BnSuBM) the robot it pushed
   - this **force it to learn robust gaits**
 
----
+  ---
 
 policy: a **`joint position` policy** (not `torque`)
 - we use the **policy network** as an **`impedance` controller**
@@ -243,7 +243,7 @@ policy: a **`joint position` policy** (not `torque`)
   - `2` hidden layers (`256` + `128`)
   - **`25 µs` inference** on a single CPU thread
 
----
+  ---
 
 performance
 - **high speed** motion (**learnt gait** pattern: **trot** with full flight phase)
@@ -374,6 +374,7 @@ randomization
 
 </details>
 
+---
 ---
 
 # :mechanical_arm: sim2real - small projects
@@ -727,6 +728,9 @@ limits
 
 </details>
 
+---
+---
+
 # :chopsticks: tasks examples
 
 **`"cartpole"`**
@@ -807,6 +811,9 @@ _what `delta-t`?_
 | *description [source](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)* |
 
 </details>
+
+---
+---
 
 # :point_up: not (classical) RL
 
@@ -1033,6 +1040,9 @@ real-world
 - > "resistive force during rigid objects excavation can be large and only limited amount of force and torque can be applied by the Franka arm in real world"
 
 </details>
+
+---
+---
 
 # :books: theory & reviews
 
