@@ -132,7 +132,7 @@ modelling `SEA` is difficult:
 - the low-level **controller dynamics**
 - the compliance/damping at the joints
 
-- - -
+- _ - _ -
 
 actuator-net: **data-collection**
 - _what is collected?_
@@ -180,7 +180,7 @@ actuator-net: training
 - not mentioned here, but in [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17BnSuBM) the robot it pushed
   - this **force it to learn robust gaits**
 
-- - -
+- _ - _ -
 
 policy: a **`joint position` policy** (not `torque`)
 - we use the **policy network** as an **`impedance` controller**
@@ -243,7 +243,7 @@ policy: a **`joint position` policy** (not `torque`)
   - `2` hidden layers (`256` + `128`)
   - **`25 µs` inference** on a single CPU thread
 
-- - -
+- _ - _ -
 
 performance
 - **high speed** motion (**learnt gait** pattern: **trot** with full flight phase)
