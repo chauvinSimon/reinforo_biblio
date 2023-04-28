@@ -1,18 +1,61 @@
+**`reinforo_biblio` =  bibliography on "reinforcement learning for robotics"**
+
+# :dart: scope and ambition
+
+centralize my notes on some works about
+- **_learning_** something
+  - _learning-based_ as opposed to _hand-crafted_ control
+  - mostly `reinforcement learning`
+  - !not all paper use learning!
+- **robotics**
+  - here mostly robot arms
+- **real world**
+  - to see the concrete challenges of real-world deployment
+
+# :construction_worker: :construction: WIP
+
 todo:
-- order in sections
-- cool additional projects
+- explore additional works
   - [Intelligent Autonomous Systems - TU Darmstadt](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
   - [OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
   - https://corl2022.org/previous-conferences/
 - 
-# examples
 
+---
 
+---
+
+# :mechanical_arm: :mechanical_arm: sim2real - big projects
+anymal
+openAI cube
+
+# :mechanical_arm: sim2real - small projects
+- push chips
+- sim param dist + panda
+- `ball-in-a-cup` randomization
+- policy distillation
+
+# :chopsticks: tasks examples
+- cartpole
+- ball-in-a-cup
+
+# :point_up: not (classical) RL
+- palme
+- toss
+- juggle: no sim, 1-step MDP
+- Excavation: one step
+
+# :books: theory & reviews
+- curriculum
+- time limit
+- domain randomization
+- offline RL
 
 **`"cartpole"`**
 
 - **[[:memo:](https://www.gymlibrary.dev/environments/classic_control/cart_pole/)]**
   **[[:octocat:](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py#enroll-beta)]**
+- **[** _`classic control`, `gym`, `task example`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -25,9 +68,10 @@ todo:
 |:--:| 
 | *with `MPC` or `LQR` controller? [source](https://blog.arduino.cc/2018/05/23/zipy-is-a-homebrew-inverted-pendulum/)* |
 
-the dynamics is modelled following [this paper](https://coneural.org/florian/papers/05_cart_pole.pdf)
-- the `action` represents a `force` and is converted to `acceleration`s
-- the `acceleration`s are used in integrators to derive `speed` and `position`
+[`gym.CartPoleEnv`](https://github.com/openai/gym/blob/master/gym/envs/classic_control/cartpole.py)
+- the `dynamics` is modelled following [this paper](https://coneural.org/florian/papers/05_cart_pole.pdf)
+  - the `action` represents a `force` and is converted to `acceleration`s
+  - the `acceleration`s are used in integrators to derive `speed` and `position`
 
 | Num | Action                 |
 |-----|------------------------|
@@ -63,16 +107,18 @@ else:  # semi-implicit euler
 self.state = (x, x_dot, theta, theta_dot)
 ```
 
-what `delta-t` is used?
-- `20 ms` in gym
+_what `delta-t`?_
+- `20 ms` in [`gym`](https://github.com/openai/gym/blob/dcd185843a62953e27c2d54dc8c2d647d604b635/gym/envs/classic_control/cartpole.py#L97)
 
 </details>
 
 ---
+
 **`"High Acceleration Reinforcement Learning for Real-World Juggling with Binary Rewards"`**
 
 - **[[:memo:](https://arxiv.org/abs/2010.13483)]**
   **[[🎞️](https://sites.google.com/view/jugglingbot)]**
+- **[** _`no sim`, `1-step`, `expert init`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -196,13 +242,15 @@ sparse rewards
 
 ---
 
----
 **`"Curriculum Learning for Reinforcement Learning Domains: A Framework and Survey"`**
 
 - **[[:memo:](https://arxiv.org/pdf/2003.04960.pdf)]**
+- **[** _`todo`, `curriculum learning`_ **]**
 
 <details>
   <summary>Click to expand</summary>
+
+todo
 
 | ![](media/2020_narvekar_1.png) | 
 |:--:| 
@@ -217,6 +265,7 @@ sparse rewards
 - **[** `2018` **]**
   **[[:memo:](https://www.ias.informatik.tu-darmstadt.de/uploads/Alumni/JensKober/IJRR__Revision_.pdf)]**
   **[[🎞️](https://www.youtube.com/watch?v=OXzR_5TJ7Xk)]**
+- **[** _`ball-in-a-cup`, `task example`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -235,6 +284,7 @@ sparse rewards
   **[[:memo:](https://arxiv.org/pdf/1808.00177.pdf)]**
   **[[🎞️](https://openai.com/research/learning-dexterity)]**
   **[[🎞️](https://www.youtube.com/watch?v=6fo5NhnyR8I)]**
+- **[** _`openAI`, `randomization`, `RNN`, `privileged learning`, `external pose estimator`_ **]**
 
 
 <details>
@@ -347,6 +397,7 @@ randomization
   **[[🎞️](https://www.youtube.com/watch?v=UUqidOSMKLE)]**
   **[[🎞️](https://fabiopardo.github.io/posters/time_limits_in_rl.pdf)]**
   **[[🎞️](https://sites.google.com/view/time-limits-in-rl)]**
+- **[** _`Markov`, `time-awareness`, `truncation`, `termination`, `bootstrappig`, `episode`, `gymnasium`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -444,6 +495,7 @@ why do common **`time-unaware` agents** still often manage to perform relatively
 
 - **[** `2022` **]**
   **[[🎞️](https://www.youtube.com/watch?v=0Kw-VTym9Pg)]**
+- **[** _`offline RL`, `data-driven RL`, `conservative Q-learning`_ **]**
 
 
 <details>
@@ -464,6 +516,13 @@ why do common **`time-unaware` agents** still often manage to perform relatively
 | ![](media/2022_levine_4.gif) | 
 |:--:| 
 | *the big trained `PTR` can be used either for __fine-tuning__ or for initializing __new tasks__ [source](https://www.youtube.com/watch?v=0Kw-VTym9Pg)* |
+
+additional resource
+- [similar talk at GTC23](https://www.nvidia.com/en-us/on-demand/session/gtcspring23-s51826/)
+- [`Imitation learning vs. offline reinforcement learning`](https://www.youtube.com/watch?v=sVPm7zOrBxM)
+- [`Reinforcement Learning Pretraining for Reinforcement Learning Finetuning`](https://www.youtube.com/watch?v=zg6Tip6s_mA)
+- [`Offline Reinforcement Learning: From Algorithms to Practical Challenges`](https://sites.google.com/view/offlinerltutorial-neurips2020/home)
+- [Chelsea Finn's intervention in `Dexterity: Machine Learning for Robot Manipulation and Dexterity`](https://youtu.be/Vj50Z7az3TY?t=642)
 
 **data-driven `RL`**
 - as a way to use "large + cheap + garbage" data
@@ -523,6 +582,7 @@ applications: **few-shots**
   **[[🎞️](https://www.youtube.com/watch?v=aTDkYFZFWug)]**
   **[[🎞️](https://www.youtube.com/watch?v=Afi17BnSuBM)]**
   **[[:octocat:️](https://github.com/junja94/anymal_science_robotics_supplementary)]**
+- **[** _`actuator-net`, `curriculum factors`, `quadrupedal system`, `elastic actuators`, `sim2real`, `randomization`_ **]**
 
 
 <details>
@@ -579,7 +639,7 @@ real hardware
   - **electric motor** -> gear reduction -> **elastic element** -> load
 - actuation chain: **from `position command` (`action`) to `joint torque`**
   - a **`PD`-controller** converts [`position command`] to [`desired torque`]
-    - _as for_ **_nvidia orbit_**
+    - [_as for_ **_nvidia orbit_**](https://github.com/NVIDIA-Omniverse/Orbit/issues/49)
     - the policy network outputs a `joint position` references, which are converted to `torque` using fixed gains (`kP` and `kD`)
   - a `PID`-controller converts [`desired torque`] to [`desired current`]
   - a Field-Oriented Controller (`FOC`) converts [`desired current`] to [`phase voltage`]
@@ -620,6 +680,8 @@ modelling `SEA` is difficult:
   - > "the ideal actuator model assumes that there is **no communication `delay`** and that the actuator can generate any commanded torque **instantly**"
 - the low-level **controller dynamics**
 - the compliance/damping at the joints
+
+---
 
 actuator-net: **data-collection**
 - _what is collected?_
@@ -667,6 +729,7 @@ actuator-net: training
 - not mentioned here, but in [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17BnSuBM) the robot it pushed
   - this **force it to learn robust gaits**
 
+---
 
 policy: a **`joint position` policy** (not `torque`)
 - we use the **policy network** as an **`impedance` controller**
@@ -729,17 +792,14 @@ policy: a **`joint position` policy** (not `torque`)
   - `2` hidden layers (`256` + `128`)
   - **`25 µs` inference** on a single CPU thread
 
+---
+
 performance
 - **high speed** motion (**learnt gait** pattern: **trot** with full flight phase)
 - fast and flexible **recovery after a fall**
 - fewer engineering / expertise than full-modelling
 - **fast inference**
 - energy-efficiency
-
-todo
-- understand `impedance control`
-- reading values
-- examples
 
 differences from [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17BnSuBM)
 - `MDP`.`obs`: also the terrain height
@@ -760,6 +820,7 @@ differences from [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17
   **[[:memo:](https://arxiv.org/pdf/2111.00956.pdf)]**
   **[[🎞️](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)]**
 
+- **[** _`domain gap`, `domain parameter distribution`, `domain randomization`, `sim2sim`, `sim2real`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -769,7 +830,7 @@ differences from [`ANYmal` in `Omniverse`](https://www.youtube.com/watch?v=Afi17
 | *problem formulation: a `domain parameter distribution` `p`(`ξ`) is introduced [source](https://arxiv.org/pdf/2111.00956.pdf)* |
 
 motivations:
-- `domain randomization` is a method for learning from randomized simulations by adding perturbation
+- **`domain randomization`** is a method for learning from randomized simulations by **adding perturbation**
   - of simulator parameters
   - state `observations`
   - or applied `actions`
@@ -777,7 +838,7 @@ motivations:
   - from the **Bayesian perspective**, we can interpret the `distribution over simulators` as a representation of **uncertainty**
 - ideally, measure for the inter-domain transferability of controllers
 
-example of parameters / 
+example of parameters:
 - bodies' inertia and geometry
 - parameters of the **friction** and **contact** models
 - possible **delays in the actuation**
@@ -863,7 +924,7 @@ promising directions
   - > "Existing approaches typically realize this with **discrete switches** between the **low-level policies**, leading to undesirable abrupt changes in the behavior"
 
 other concepts
-- `curriculum learning`
+- `curriculum learning`gap
   - > to increase the **sample efficiency** by **scheduling** the training process such that the agent first encounters **"easier" tasks** and gradually progresses to **"harder"** ones.
   - `curriculum learning` **does not aim** at finding solutions **robust to model uncertainty**
 - `meta learning`
@@ -893,6 +954,7 @@ other concepts
   **[[:memo:](https://arxiv.org/pdf/2003.02471.pdf)]**
   **[[🎞️](https://www.youtube.com/watch?v=V1KZmIcMLt0)]**
   **[[️:octocat:](https://github.com/famura/SimuRLacra)]**
+- **[** _`ball-in-a-cup`, `domain randomization`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -929,6 +991,7 @@ this is not `system identifaction`
   **[[:memo:](https://arxiv.org/abs/1810.05687)]**
   **[[🎞️](https://www.youtube.com/watch?v=nilcJY5Kdt8)]**
   **[[🎞️](https://sites.google.com/view/simopt)]**
+- **[** _`sim2real`, `domain randomization`, `simulation parameter distribution`, `franka emika`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -955,7 +1018,7 @@ this is not `system identifaction`
 
 | ![](media/2019_chebotar_6.png) | 
 |:--:| 
-| *`simulation parameter distribution` is denoted by `Pφ`. To collect simulated `observation` samples, `simulation parameters` are sampled from `Pφ`: `ξ` [source](https://arxiv.org/abs/1810.05687)* |
+| *`simulation parameter distribution` is denoted by `Pφ`. To collect simulated `observation` samples, `simulation parameters` (`ξ`) are sampled from `Pφ` [source](https://arxiv.org/abs/1810.05687)* |
 
 | ![](media/2019_chebotar_7.png) | 
 |:--:| 
@@ -1036,6 +1099,7 @@ related works
 - **[** `2022` **]**
   **[[:memo:](https://www.semanticscholar.org/paper/Excavation-Reinforcement-Learning-Using-Geometric-Lu-Zhu/f3bad843e86a37dd29e86ef5582eced26c82e028)]**
   **[[🎞️](https://drive.google.com/drive/folders/19n-V573He55i6WqnoINukvoaU1oqSUmQ)]**
+- **[** _`1-step`, `franka emika`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -1083,6 +1147,7 @@ real-world
 - **[** `2018` **]**
   **[[:memo:](https://arxiv.org/pdf/1710.06537.pdf)]**
   **[[🎞️](https://www.youtube.com/watch?v=XUW0cnvqbwM)]**
+- **[** _`domain randomization`, `pushing task`, `privileged learninig`, `RNN`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -1208,6 +1273,7 @@ benefits of **`RNN`** (both in `Value` and `Policy`)
 
 - **[** `2022` **]**
   **[[:memo:](https://arxiv.org/abs/2207.14561)]**
+- **[** _`domain randomization`, `sim2real`, `policy distillation`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -1288,7 +1354,7 @@ limits
   **[[🎞️](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)]**
   **[[🎞️](https://www.youtube.com/watch?v=-O-E1nFm6-A)]**
 
-:warning: not RL : single-step supervised learning where the "ground truth" is the result of the trial
+- **[** _`not RL`, `1-step`, `policy distillation`_ **]**
 
 <details>
   <summary>Click to expand</summary>
@@ -1296,6 +1362,8 @@ limits
 | ![](media/2019_zeng_1.gif) | 
 |:--:| 
 | *description [source](https://www.youtube.com/watch?v=f5Zn2Up2RjQ)* |
+
+**`1`-step supervised** learning where the "ground truth" is the **result of the trial**
 
 authors of the [`Transporter Networks: Rearranging the Visual World for Robotic Manipulation`](https://transporternets.github.io/)
 
@@ -1308,6 +1376,7 @@ authors of the [`Transporter Networks: Rearranging the Visual World for Robotic 
 - **[** `2023` **]**
   **[[:memo:](https://palm-e.github.io/assets/palm-e.pdf)]**
   **[[🎞️](https://palm-e.github.io/)]**
+- **[** _`not RL`, `LLM`_ **]**
 
 :warning: not RL : 
 
