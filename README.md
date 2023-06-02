@@ -1118,6 +1118,93 @@ applications: **few-shots**
 
 ---
 
+**`"Efficient Online Reinforcement Learning with Offline Data"`**
+
+- **[** `2023` **]**
+  **[[:octocat:️](https://github.com/ikostrikov/rlpd)]**
+- **[** _`online RL with offline data`, `off-policy RL`, `symmetric sampling`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                           ![](media/2023_ball_3.png)<br/>                                                           | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *key ingredients: `LayerNorm`, `large ensembles`, `symmetric sampling`. Env-specific ingredients: `multiple (2) critics` `entropy term` `3 vs 2-layer MLP` [source](https://arxiv.org/pdf/2302.02948.pdf)* |
+
+|    ![](media/2023_ball_2.png)<br/> | 
+|:---:| 
+| *`LayerNorm` should mitigate **value divergence**. The `Q`-function (blue) is learnt **online samples**. What happens if an `action`, **out of the `online` distribution**, is sampled from the **replay buffer**? Its `Q` is **extrapolated** from the **function approximator** (`NN`), leading to **overestimation**. A solution is to apply **`LayerNorm`**, which suppresses **extreme value extrapolation**, whilst maintaining the freedom of an **unconstrained off-policy** method (`exploration` is still possible). [source](https://arxiv.org/pdf/2302.02948.pdf)* |
+
+|                                                         ![](media/2023_ball_1.png)<br/>                                                         | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *comparison of **regularization** methods: `ensemble` works better than `dropout` and `weight-decay`. [source](https://arxiv.org/pdf/2302.02948.pdf)* |
+
+`RLPD` = Reinforcement Learning with **Prior Data**
+
+related works
+- **pre-training**
+  - **offline RL**, followed by **online fine-tuning**
+- explicit **constraints**
+  - to handle issues with **distribution shift**
+  - > "the online agent updates are explicitly constrained such that it exhibits behavior that **resembles the offline data**"
+  - e.g. augments a policy gradient update with a weighted update that explicitly includes demonstration data
+
+here
+- > "we **do not** perform any **offline pre-training** but run **online RL _from scratch_** with offline data included in a replay buffer."
+- > "we **do not** restrict the policy using a **behavior cloning term**"
+- > "[no need for high quality offline data] our approach is, importantly, **agnostic to the quality** of the data"
+- the environment cannot be **explored online**, therefore **distribution shift** should not be a problem
+
+pre-collected data
+- access to offline datasets
+  - `D` is a collection of (`s`, `a`, `r`, `s′`) tuples generated from a particular `MDP`
+  - _todo: how is the `reward` annotated?_
+- **quality / quantity**
+  - this general approach that is **agnostic**
+
+algo
+- `SAC`
+
+key ingredients
+- `symmetric sampling`
+  - to incorporate _online_ and _offline_ data
+  - for each batch:
+    - `50%` of the data is sampled from the **online replay buffer**
+    - `50%` from the **offline data buffer**
+- **normalizing the `critic`** update
+  - goal: prevent catastrophic **`value` over-extrapolation**
+    - the `Q`-values of out-of-distribution (`OOD`) `action` (estimated via extrapolation) should **not be significantly greater** than those already seen in the data
+  - `LayerNorm` as a **`value` extrapolation regularizer**
+    - to mitigate catastrophic **overestimation** / **critic divergence**
+    - it bounds the extrapolation of networks ...
+    - ... but still allows exploration: it **does not explicitly constrain** the policy to remain close to the offline data
+- using **large ensembles** to improve sample efficiency
+  - goal: **efficiently** incorporate prior data
+  - the incorporation of prior data is **implicit** through the use of **online `Bellman` backups** over **offline transitions**
+  - goal: make these **`Bellman` backups** efficient
+    - _pure offline_ and _constrained_ approaches have an **explicit** mechanism for that:
+      - pre-training
+      - auxiliary supervision term
+  - here: **random `ensemble` distillation**
+    - particularly efficient on **sparse `reward`** tasks.
+
+**`env`-specific** ingredients
+- > "many works in deep RL require per-environment hyperparameter tuning"
+  - may **not be universally useful** (to be tried out each time)
+  - > "may explain why **off-policy methods have not been competitive** thus far"
+- **Clipped Double `Q`-Learning** (`CDQ`)
+  - problem: the maximization objective of `Q`-learning leads to **value overestimation**
+  - solution: taking a minimum of an **ensemble of two `Q`-functions** for computing **`TD`-backups**
+  - issue: fitting target `Q`-values that are **`1 std.` below the actual target values** when updating the critics. This may not be universally useful as it can be **too conservative**
+- `MaxEntRL` term in the objective
+  - goal: maximize `reward` while **behaving as randomly as possible**
+  - helps when `rewards` are **often sparse** and require **exploration**
+- architecture: `2` or `3` layers in the `actor` and `critic`
+
+</details>
+
+---
+
 **`"Robot Learning from Randomized Simulations : A Review"`**
 
 - **[** `2022` **]**
