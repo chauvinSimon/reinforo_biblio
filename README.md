@@ -808,6 +808,284 @@ _what `delta-t`?_
 
 # :point_up: not (classical) RL
 
+**`"Robotic Table Tennis: A Case Study into a High Speed Learning System"`**
+
+- **[** `2023` **]**
+  **[[:memo:](https://arxiv.org/abs/2309.03315)]**
+  **[[🎞️](https://www.youtube.com/watch?v=uFcnWjB42I0)]**
+
+- **[** _`high-speed robotics`, `latency`, `not RL`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+> "Our hope is that this paper can help researchers who are starting out in high-speed robotic learning and serve as a discussion point for those already active in the area."
+> "[Table tennis] Amateurs hit the ball at up to `9m/s`, with professionals tripling that"
+
+|                   ![](media/2023_dambrosio_1.gif)                   | 
+|:-------------------------------------------------------------------:| 
+| *description [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                                                                        ![](media/2023_dambrosio_1.gif)                                                                        | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *the agent should **return the ball** such that it **crossed the net** and **lands on the opposite side** of the table [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                                                     ![](media/2023_dambrosio_2.gif)                                                      | 
+|:----------------------------------------------------------------------------------------------------------------------------------------:| 
+| *environment reset enables efficient evaluation and even fine-tuning - impressive [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                            ![](media/2023_dambrosio_3.gif)                            | 
+|:-------------------------------------------------------------------------------------:| 
+| *perception based on 2 cameras [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                                                               ![](media/2023_dambrosio_4.gif)                                                               | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *the agent is trained in a **simulator** based on `PyBullet` using an **evolutionary strategy (`ES`) algorithm** [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                                                                ![](media/2023_dambrosio_1.png)                                                                 | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Policies are sensitive to `latency` and `physical` parameter values - less to `noise` and `throwing distribution` [source](https://arxiv.org/abs/2309.03315)* |
+
+
+|                                 ![](media/2023_dambrosio_2.png)                                 | 
+|:-----------------------------------------------------------------------------------------------:| 
+| *software architecture - mixing `C++` and `python` [source](https://arxiv.org/abs/2309.03315)*  |
+
+
+|                                 ![](media/2023_dambrosio_3.png)                                 | 
+|:-----------------------------------------------------------------------------------------------:| 
+| *`latencies` are modeled as a Gaussian distribution [source](https://arxiv.org/abs/2309.03315)* |
+
+
+|                                                          ![](media/2023_dambrosio_4.png)                                                          | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *training a `policy` with `task`-space `actions` enables transfer to **different robot morphologies** [source](https://arxiv.org/abs/2309.03315)* |
+
+
+|                                                                                            ![](media/2023_dambrosio_5.png)                                                                                            | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *images are not converted to `RGB` but let in **raw `Bayer` pattern** for the detection. Together with the **`patch`-based training**, this increase the detection speed. [source](https://arxiv.org/abs/2309.03315)* |
+
+
+|                                                      ![](media/2023_dambrosio_6.png)                                                       | 
+|:------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *the `reward` function is **sparse** - only one `reward` is emitted at the end of the episode? [source](https://arxiv.org/abs/2309.03315)* |
+
+
+|                    ![](media/2023_dambrosio_7.png)                    | 
+|:---------------------------------------------------------------------:| 
+| *post-debugging interface [source](https://arxiv.org/abs/2309.03315)* |
+
+
+task(s)
+- about table tennis:
+  - "Amateurs hit the ball at up to `9m/s`"
+  - amateur-speed ball crosses the table (`~3.6m`) in **`400 ms`**
+  - **low latency** and **high precision** is required
+- task-1: `hitting a thrown ball`
+  - the agent should **return the ball** such that it **crossed the net** and **lands on the opposite side** of the table 
+  - the arm's end effector is **3D-printed extension** attached to a **standard table tennis paddle**
+- task-1 variant: `"damped hitting"`
+  - the agent should **hit stronger**
+  - using a lower `restitution coefficient` and a higher `linear damping` param 
+- task-2: `catching a thrown ball`
+  - a **lacrosse head** is used as the end effector 
+  - > "This task has a much larger variance in `sim-to-real` transfer due to difficulty in **accurately modelling net & ball capture dynamics**."
+  - [84]
+  - no picture / video?
+  - not much info?
+  - modification needed:
+    - **soft body modelling** of the lacrosse head net _(no further details?)_
+    - **trajectory prediction** inputs for agents
+    - handling **occlusions** when the ball is close to the net
+- is `reinforcement learning` suited for this task?
+  - long-term planning: yes
+  - not interaction: no
+
+`action`-space: **`task`-space vs `joint`-space**
+- **`task`-space** has several benefits:
+  - is **compact**
+  - is **interpretable**
+  - provides a bounding cube for the end effector as a **safety** mechanism
+  - aligns the robot `action` and the `observation` spaces with ball `observations`
+  - possible transfer to **different robot morphologies**
+  - > "`task`-space control usually shows significant improvements in learning of `locomotion and manipulation` tasks"
+- _details about the IK solver? How fast?_
+- results: `task`-space policies ...
+  - **train faster**
+  - much better than `joint`-space policies on **harder task** ("damped hitting")
+
+observation space
+- ?what exactly received the policy?
+- random noise is added to the ball observation. Domain randomization is also supported for many physical parameters.
+
+reward function
+- sparse and simple
+
+software architectures and choices
+- modularity
+  - > "hardware components (`cameras + vision` stack, `robot`, `ball thrower`) are controlled through `C++` and communicate `state` to the environment through a **custom message passing system** called `Fluxworks` (which utilizes highly optimized `Protobuffer` communication)"
+  - ref to `Fluxworks`?
+- multi-language
+  - > "this system adopts a **hybrid approach** where latency sensitive processes like control and perception are implemented in C++ while others are partitioned into several Python binaries"
+  - a **pure-`C++` thread** is started to handle **low-level control** for each of the `Festo` and `ABB` robots
+    - communication with these threads is done asynchronously via **circular `C++` buffers**
+    - the **circular buffers** are accessed from `Python` via **`Pybind11`-wrapped `C++` function calls**
+- `CI/CD`
+  - > "If the **system suddenly starts performing worse**, is it a _vision problem_, a _hardware failure_, or just a _bad training run_?"
+  - > "many issues can only be **reproduced** when the **whole system** is running at full speed."
+  - nightly tests are performed
+
+safety layer 
+- policy commands are **filtered** through a **safety simulator** before being sent to the robot
+- The simulator converts a **velocity `action`** generated by the control policy to a `position` and `velocity` command required by `EGM` at each timestep
+  - > "**Collisions** in the simulator generate a repulsive force that pushes the robot away, resulting in a **valid, safe command** for the real robot."
+
+cams
+- **2** hardwired synchronized `Ximea MQ013CG-ON` cameras
+  - not more?
+  - > "Adding more cameras to the current setup could produce still **more accurate position estimations**, but there start to be **bandwidth limitations** on a single machine and it may require remote vision devices (**increasing latency and system complexity**) or switching away from **USB3**."
+- location
+  - the cameras are mounted roughly `2m` above the play area on each side of the table
+  - **extrinsic calibrations** performed with `cv2` using **`AprilTags` placed on the table**
+- **`"fisheye"` lenses**
+  - to capture more of the environment
+  - > "the fisheye lens distortion introduces challenges in calibration and additional uncertainty in triangulation"
+- `FPS` vs `latency`
+  - **`125 FPS`** at a resolution of `1280x1024`
+  - extremely low latency of `388 µs`
+- **raw `Bayer`** images
+  - link to wikipedia?
+  - the camera uses a **global shutter** with a **short (`4ms`) exposure time** and only returns the raw, **unprocessed `Bayer` pattern**
+- efficiency
+  - > "By skipping `Bayer` to `RGB` conversion, `1 ms` (or 15% of the time between images) of **conversion induced latency** per camera is avoided"
+  - each video stream is processed independently
+
+perception subsystem
+- **detection network**
+  - `CenterNet` like
+    - five `spatial` convolutional layers
+    - two **(buffered) `temporal` convolutions** to **capture motion features**
+      - this `temporal` layer creates a **buffer to store the input feature** for the **next timestep**
+  - intput
+    - the **raw `Bayer` pattern** image - _not RGB!_
+  - output: at each pixel ...
+    - a likelihood of the ball center (trained with **binary cross-entropy** loss)
+    - a `2D` local offset to accommodate **sub-pixel resolution**
+    - a `2D` estimate of the **ball velocity** in pixels
+  - training
+    - uses **local patch** (`64x64`) to match the **receptive field** of the architecture
+  - > "GPU data buffering (?), raw `Bayer` pattern detection, and patch based training substantially increase the performance of high frequency perception"
+- sensor fusion: **triangulation**
+  - the **direct linear transform (`DLT`)** method for binocular stereo vision estimates a **`3D` position** from these **image locations** in the **table's coordinate frame**
+- post-processing
+  - **recursive Kalman filter** to refine the estimated ball state before its `3D` position
+  - The system uses the Savitzky-Golay `FIR` filter for **`observation` smoothing**
+
+
+robot: `2+6` = **`8`-DOF system**
+- `2`-DOF **linear actuator**: `Festo`
+  - controlled through a `Modbus` interface at approximately `125Hz`
+  - up to `2 m/s` in both axes
+- `6`-DOF arm: `ABB`
+  - **industrial robot** (not co-bot)
+    - > "one major limitation of working with **off-the-shelf industrial systems** is that they may **contain proprietary, "closed-box software**"
+  - joints rotate up to **`420` or `600` degrees/s**
+    - for comparison: what for fr3?
+- control
+  - `ABB` **Externally Guided Motion (`EGM`)** interface
+    - commands: `position` and `velocity` target per joint
+    - response: joint feedback
+    - frequency: `248Hz`
+  - a lot of **parameter identification** has been performed on this **black-box controller**
+- what happens:
+  - observation -> `policy` -> `action` = joint-speeds
+    - simulator: joint-speeds are direclty applied
+    - real-robot:
+      - joint-speeds -> `safety layer` -> target `position` and `speed` per joint
+      - these targets are passed to the `ABB` `EGM`
+- automated real world **environment `resets`**
+  - using **blowing air** to return them to the hopper
+  - impressive and useful for the **ablation study** where **`22.5k+` balls thrown** are performed
+
+`gym` API also for the **real hardware** setup
+- enabling fine-tuning on the real robot and efficient evaluation
+- init state
+  - a start state with controllers based on standard S-curve trajectory planning at the end of the episode or just after a paddle hit.
+  - using ABB controller
+
+evaluation
+- **zero-shot `sim-to-real` transfer**
+- maximum episode return = `2.0`
+  - `+1`: making **contact with the ball**
+  - `+1`: **landing on the opposing side**
+  - a single evaluation is the average return over `50` episodes
+
+policy
+- trained for **`zero-shot` transfer**
+- input:
+  - > "**history** of the past **eight robot joint** and **ball states**"
+  - _what len of history?_
+  - _what exactly? are values normalized?_
+- output
+  - `joint`-space:
+    - **`speed`** for each joint
+  - `task`-space:
+    - **`position`** in `3` dimensions
+    - the **surface normal** of the paddle in `2` dimensions (`roll` and `yaw`)
+- frequency: `100Hz`
+- inference runs **on `CPU`**
+  - Most policies are **compact**, represented as a **three layer**, 1D, fully convolutional gated dilated CNN with `≈1k` parameters
+  - > The standard robot policies are **so small** that the time to transfer the input data from **`CPU` to accelerator** exceeds any savings in running inference on the accelerator"
+- approaches for **agent-learning**
+  - **Blackbox Gradient Sensing (`BGS`)**
+    - **evolutionary strategy**
+    - > "despite **poor sample efficiency**, `ES` methods are simple to implement, scalable, and robust optimizers that can even **fine-tune real world** performance"
+  - other mentioned approaches - _no result reported :(_
+  - `PPO` and `SAC` (reinforcement learning)
+  - `GoalsEye` (behavior cloning)
+
+simulator
+- **`PyBullet`** is the **physics engine**
+- **`gym` API** for environment interface
+- compatible with **agent learning frameworks**, for example, `TF-Agents`, `ACME`, `Stable-Baselines3`
+- _not released?_
+
+some lessons learnt
+- 1- **Modeling the `latency`** is crucial
+  - `latency` is a major source of the `sim-to-real` gap in robotics
+  - how to **mitigate** the various **sources of `latency`**?
+    - **store `XXX` + interpolate to generate `XXX` for a given timestep, with the desired `latency`**
+    - `observation`:
+      - the history of `observations` are stored and **linearly interpolated** to produce an **observation with a desired latency**
+      - > "`observation` interpolation on the physical system as a **useful technique** for increasing the robustness of deployed policies to latency variation."
+      - to address noise and jitter, a **bandpass filter** is applied to the `observation` buffer **before interpolation**
+    - `action`:
+      - the action `latency` is implemented by **storing the raw `actions`** produced by the policy in a buffer, and **linearly interpolating** the `action` sent to the robot to the **desired `latency`**.
+- 2- physics modelling and physical parameters
+  - Policies are **sensitive to physical parameters**, which can have complex interactions with each other
+    - > "One challenge of a complex system with many interacting components is that **multiple errors can compensate for each other**"
+  - parameters: 
+    - `restitution coefficients` of the ball, table, and paddle
+    - the `friction` of the paddle
+  - identification methods
+    - ref: [28]?
+  - setting these params to the **"identified" values** is not as good as using results of grid search (**"tuned" values**)
+    - > "We hypothesize this is because ball spin is not correctly modelled in the simulator and that the tuned values compensate for this for the particular ball distributions used in the real world"
+    - **`ball spin` is not accurately modeled** - important to determined if the balled is returned correctly
+- 3- policies are **robust to `observation` noise** provided it has **zero mean**
+  - the **interpolation** of `observations` likely serves as a buffer against **low levels** of zero-mean noise
+  - but an **offset** due e.g. to a mis-calibration would be critical
+- 4- policies are **robust to variations in ball throwing distributions** provided **the _real world_ distribution is contained within the _training_ distribution**
+- 5- `latency` vs `FPS` vs `accuracy`
+  - > "For both `frame-rate` and `latency`, the performance stays consistent with the baseline until there is a heavy dropoff at `50 FPS` and `150 ms` respectively, at which point the robot likely **no longer has sufficient time to react** to the ball and **swings too late**."
+- 6- **automatic resets** of the real system is helpful
+  - enables autonomous training and evaluation in the real world
+
+</details>
+
+---
+
 **`"TossingBot: Learning to Throw Arbitrary Objects with Residual Physics"`**
 
 - **[** `2019` **]**
