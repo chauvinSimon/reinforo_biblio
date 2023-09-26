@@ -819,13 +819,6 @@ _what `delta-t`?_
 <details>
   <summary>Click to expand</summary>
 
-> "Our hope is that this paper can help researchers who are starting out in high-speed robotic learning and serve as a discussion point for those already active in the area."
-> "[Table tennis] Amateurs hit the ball at up to `9m/s`, with professionals tripling that"
-
-|                   ![](media/2023_dambrosio_1.gif)                   | 
-|:-------------------------------------------------------------------:| 
-| *description [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
-
 |                                                                        ![](media/2023_dambrosio_1.gif)                                                                        | 
 |:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
 | *the agent should **return the ball** such that it **crossed the net** and **lands on the opposite side** of the table [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
@@ -838,9 +831,13 @@ _what `delta-t`?_
 |:-------------------------------------------------------------------------------------:| 
 | *perception based on 2 cameras [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
 
-|                                                               ![](media/2023_dambrosio_4.gif)                                                               | 
-|:-----------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+|                                                                     ![](media/2023_dambrosio_4.gif)                                                                     | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
 | *the agent is trained in a **simulator** based on `PyBullet` using an **evolutionary strategy (`ES`) algorithm** [source](https://www.youtube.com/watch?v=uFcnWjB42I0)* |
+
+|                                                                   ![](media/2023_abeyruwan_1.gif)                                                                   | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *referenced `catching` task trained with blackbox optimization [paper](https://arxiv.org/pdf/2306.08205.pdf) [source](https://www.youtube.com/watch?v=B9X94DcYybc)* |
 
 |                                                                ![](media/2023_dambrosio_1.png)                                                                 | 
 |:--------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
@@ -876,11 +873,17 @@ _what `delta-t`?_
 |:---------------------------------------------------------------------:| 
 | *post-debugging interface [source](https://arxiv.org/abs/2309.03315)* |
 
+|                                                                                          ![](media/2021_gao_1.gif)                                                                                           | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The `restitution coefficients` of the ball, table, and paddle, and the `friction` of the paddle are measured using the method from `Gao et al. 2021` [source](https://www.youtube.com/watch?v=SNnqtGLmX4Y)* |
+
+
+motivation
+- > "Our hope is that this paper can help researchers who are **starting out in high-speed robotic learning** and serve as a discussion point for those already active in the area."
 
 task(s)
 - about table tennis:
-  - "Amateurs hit the ball at up to `9m/s`"
-  - amateur-speed ball crosses the table (`~3.6m`) in **`400 ms`**
+  - "amateurs hit the ball at up to `9m/s`" -> amateur-speed ball crosses the table (`~3.6m`) in **`400 ms`**
   - **low latency** and **high precision** is required
 - task-1: `hitting a thrown ball`
   - the agent should **return the ball** such that it **crossed the net** and **lands on the opposite side** of the table 
@@ -891,16 +894,15 @@ task(s)
 - task-2: `catching a thrown ball`
   - a **lacrosse head** is used as the end effector 
   - > "This task has a much larger variance in `sim-to-real` transfer due to difficulty in **accurately modelling net & ball capture dynamics**."
-  - [84]
-  - no picture / video?
-  - not much info?
+  - related work (nice videos): https://sites.google.com/view/agile-catching
+  - _not much info?_
   - modification needed:
     - **soft body modelling** of the lacrosse head net _(no further details?)_
     - **trajectory prediction** inputs for agents
     - handling **occlusions** when the ball is close to the net
 - is `reinforcement learning` suited for this task?
-  - long-term planning: yes
-  - not interaction: no
+  - required long-term planning: yes
+  - rich agent-object interaction: no - but `atari pong` also did not
 
 `action`-space: **`task`-space vs `joint`-space**
 - **`task`-space** has several benefits:
@@ -915,19 +917,20 @@ task(s)
   - **train faster**
   - much better than `joint`-space policies on **harder task** ("damped hitting")
 
-observation space
+`observation`-space
 - ?what exactly received the policy?
 - random noise is added to the ball observation. Domain randomization is also supported for many physical parameters.
 
-reward function
+`reward` function
 - sparse and simple
+- no action-continuity penalty is applied - _how do they get smooth behaviours?_
 
 software architectures and choices
 - modularity
   - > "hardware components (`cameras + vision` stack, `robot`, `ball thrower`) are controlled through `C++` and communicate `state` to the environment through a **custom message passing system** called `Fluxworks` (which utilizes highly optimized `Protobuffer` communication)"
-  - ref to `Fluxworks`?
+  - _no ref to `Fluxworks`?_
 - multi-language
-  - > "this system adopts a **hybrid approach** where latency sensitive processes like control and perception are implemented in C++ while others are partitioned into several Python binaries"
+  - > "this system adopts a **hybrid approach** where latency sensitive processes like control and perception are implemented in `C++` while others are partitioned into several `Python` binaries"
   - a **pure-`C++` thread** is started to handle **low-level control** for each of the `Festo` and `ABB` robots
     - communication with these threads is done asynchronously via **circular `C++` buffers**
     - the **circular buffers** are accessed from `Python` via **`Pybind11`-wrapped `C++` function calls**
@@ -955,7 +958,7 @@ cams
   - **`125 FPS`** at a resolution of `1280x1024`
   - extremely low latency of `388 µs`
 - **raw `Bayer`** images
-  - link to wikipedia?
+  - some explanation on [RAW images](https://cs.brown.edu/courses/csci1290/labs/lab_raw/index.html)
   - the camera uses a **global shutter** with a **short (`4ms`) exposure time** and only returns the raw, **unprocessed `Bayer` pattern**
 - efficiency
   - > "By skipping `Bayer` to `RGB` conversion, `1 ms` (or 15% of the time between images) of **conversion induced latency** per camera is avoided"
@@ -991,7 +994,7 @@ robot: `2+6` = **`8`-DOF system**
   - **industrial robot** (not co-bot)
     - > "one major limitation of working with **off-the-shelf industrial systems** is that they may **contain proprietary, "closed-box software**"
   - joints rotate up to **`420` or `600` degrees/s**
-    - for comparison: what for fr3?
+    - for comparison: joints of the 7-dof franka emika fr3 have joint speed limits in [150, 300] degrees/s
 - control
   - `ABB` **Externally Guided Motion (`EGM`)** interface
     - commands: `position` and `velocity` target per joint
@@ -1011,8 +1014,8 @@ robot: `2+6` = **`8`-DOF system**
 `gym` API also for the **real hardware** setup
 - enabling fine-tuning on the real robot and efficient evaluation
 - init state
-  - a start state with controllers based on standard S-curve trajectory planning at the end of the episode or just after a paddle hit.
-  - using ABB controller
+  - a start state with controllers based on standard `S`-curve trajectory planning at the end of the episode or just after a paddle hit.
+  - using `ABB` controller
 
 evaluation
 - **zero-shot `sim-to-real` transfer**
@@ -1069,7 +1072,7 @@ some lessons learnt
     - `restitution coefficients` of the ball, table, and paddle
     - the `friction` of the paddle
   - identification methods
-    - ref: [28]?
+    - ref: [`Optimal Stroke Learning with Policy Gradient Approach for Robotic Table Tennis`](https://arxiv.org/pdf/2109.03100.pdf)
   - setting these params to the **"identified" values** is not as good as using results of grid search (**"tuned" values**)
     - > "We hypothesize this is because ball spin is not correctly modelled in the simulator and that the tuned values compensate for this for the particular ball distributions used in the real world"
     - **`ball spin` is not accurately modeled** - important to determined if the balled is returned correctly
@@ -1747,6 +1750,10 @@ todo
 - [`Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning`](https://leggedrobotics.github.io/legged_gym/)
   - training the quadruped `ANYmal` robot in `Isaac Gym`
   - [presentation](https://www.youtube.com/watch?v=Afi17BnSuBM)
+
+- [`Optimal Stroke Learning with Policy Gradient Approach for Robotic Table Tennis`](https://arxiv.org/pdf/2109.03100.pdf)
+
+- [`Agile Catching with Whole-Body MPC and Blackbox Policy Learning`](https://sites.google.com/view/agile-catching)
 
 - [`Intelligent Autonomous Systems - TU Darmstadt`](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
 
