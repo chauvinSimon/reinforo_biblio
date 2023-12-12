@@ -1751,6 +1751,9 @@ todo
   - training the quadruped `ANYmal` robot in `Isaac Gym`
   - [presentation](https://www.youtube.com/watch?v=Afi17BnSuBM)
 
+- [`On the Role of the Action Space in Robot Manipulation Learning and Sim-to-Real Transfer`](https://arxiv.org/abs/2312.03673)
+  - "Joint velocity-based action spaces show very favorable properties, and overall the best transfer performance."
+
 - [`Optimal Stroke Learning with Policy Gradient Approach for Robotic Table Tennis`](https://arxiv.org/pdf/2109.03100.pdf)
 
 - [`Agile Catching with Whole-Body MPC and Blackbox Policy Learning`](https://sites.google.com/view/agile-catching)
