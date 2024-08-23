@@ -1362,6 +1362,8 @@ real-world
 **`"Deep Reinforcement Learning for Robotics: A Survey of Real-World Successes"`**
 
 - **[** `2024` **]**
+  **[[:memo:](https://www.arxiv.org/abs/2408.03539)]**
+
 - **[** _`review`_ **]**
 
 <details>
@@ -1370,9 +1372,6 @@ real-world
 |                                                                           ![](media/2024_tang_1.png)                                                                            | 
 |:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
 | *The **tables** in the appendix list the references with the level of real-world success as colours. These are very insightful! [source](https://www.arxiv.org/abs/2408.03539)* |
-
-Most approach use **Zero-shot Sim-to-Real**.
-- It would have been interesting to compare the **simulators** and the **RL frameworks**.
 
 The taxonomy spanning four axes:
 - **Robot competencies** learned with DRL
@@ -1391,7 +1390,14 @@ The taxonomy spanning four axes:
   - Off/On policy
 - Level of **real-world success**
   - Level 0: validated only in simulation
+  - ...
   - Level 5: deployed on commercialized products
+
+I think it would have been interesting to analyse the **action space** more in details:
+- For instance: joint-**position/speed/torque** control? what frequency?
+
+Most approaches use **Zero-shot Sim-to-Real**.
+- It would have been interesting to compare the **simulators** and the **RL frameworks** as well.
 
 About deformable objects: most about folding cloth - no soft-body manipulation:
 - #134: [Sim-to-real reinforcement learning for deformable object manipulation](https://sites.google.com/view/sim-to-real-deformable)
