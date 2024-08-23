@@ -370,6 +370,49 @@ randomization
 
 # :mechanical_arm: sim2real - small projects
 
+**`"Learning to Grasp the Ungraspable with Emergent Extrinsic Dexterity"`**
+
+- **[** `2022` **]**
+  **[[🎞️](https://sites.google.com/view/grasp-ungraspable)]**
+- **[** _`non-prehensile manipulation`, `compliant Operational Space Controller`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|          ![](media/2022_zhou_1.gif)          | 
+|:--------------------------------------------:| 
+| *[source](https://arxiv.org/pdf/2211.01500)* |
+
+The task: **Occluded Grasping using External Dexterity**
+- The desired grasp pose `g` is initially "occluded".
+- An external wall is used for the grasp.
+
+Interesting ideas:
+- the **reward function**: **simple** and stays identical during the full episode.
+- RL action: **End-effector delta** movement
+- the controller: so-called **"compliant Operational Space Controller (OSC)"**.
+  - the RL agent decides a **cartesian EE target pose** at 2Hz.
+  - the OSC calculates the necessary **forces and torques at the EE** (not at the joints!) to reduce any error in reaching that position, **at 100Hz**.
+  - For that, OSC uses a PD controller, with intentionally **low `Kp` and `Kd`**, to make the controller **"compliant"**, meaning it's softer or more flexible in how it moves.
+  - I am still not fully comfortable with this term, but the **"compliance in OS"** is claimed to be beneficial for safety and control: It should **prevent the robot from applying too much force**.
+  - > "If we use a controller that is compliant in the **joint** configuration space instead, we will **not have direct control over the maximum force** the end-effector might have on the object and the bin."
+  - This allows the robot to **respond flexibly** to contact with objects, similar to how [impedance control](https://frankaemika.github.io/libfranka/cartesian_impedance_control_8cpp-example.html) modulates the interaction forces.
+  - Finally, the desired force and torque of the EE are converted into **desired joint torques**. And sent to the robot controller.
+- Automatic Domain Randomization (ADR): to "gradually expand the **range of randomization** automatically according to its performance".
+- The section on the **Sim2Real gap** regarding the low-level controller
+- The **failure cases** section
+
+They use:
+- [Robosuite](https://robosuite.ai/) as simulation environment, which is based on MuJoCo
+- Azure Kinect as camera for object pose estimation
+- a ROS interface made by their lab [FrankaPy](https://iamlab-cmu.github.io/frankapy/)
+- SAC implemented with [rlkit](https://github.com/rail-berkeley/rlkit)
+- Hindsight Experience Replay can be used there because the task is "conditioned" on target g. So even if `g` is not reached, a fake `g'` can be used during training loop to provide examples of a successful episodes
+
+</details>
+
+---
+
 **`"Sim-to-Real Transfer of Robotic Control with Dynamics Randomization"`**
 
 - **[** `2018` **]**
@@ -1316,6 +1359,50 @@ real-world
 
 # :books: theory & reviews
 
+**`"Deep Reinforcement Learning for Robotics: A Survey of Real-World Successes"`**
+
+- **[** `2024` **]**
+- **[** _`review`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                           ![](media/2024_tang_1.png)                                                                            | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The **tables** in the appendix list the references with the level of real-world success as colours. These are very insightful! [source](https://www.arxiv.org/abs/2408.03539)* |
+
+Most approach use **Zero-shot Sim-to-Real**.
+- It would have been interesting to compare the **simulators** and the **RL frameworks**.
+
+The taxonomy spanning four axes:
+- **Robot competencies** learned with DRL
+  - Mobility: locomotion and navigation
+  - Manipulation, i.e. moving or rearranging objects:
+    - pick-and-place
+    - contact-rich (assembly / articulated / deformable)
+    - in-hand
+    - non-prehensile (moving objects without grasping)
+- Problem **formulation**
+  - The action-space, observation space, and reward function of the POMDP
+- **Solution** approach
+  - Use of simulators / real-world data
+  - Learning the world-dynamics
+  - Use of expert data
+  - Off/On policy
+- Level of **real-world success**
+  - Level 0: validated only in simulation
+  - Level 5: deployed on commercialized products
+
+About deformable objects: most about folding cloth - no soft-body manipulation:
+- #134: [Sim-to-real reinforcement learning for deformable object manipulation](https://sites.google.com/view/sim-to-real-deformable)
+- #135: [Learning to manipulate deformable objects without demonstrations](https://www.youtube.com/watch?v=7kxkJlPuLz4)
+- #136: [Speedfolding: Learning efficient bimanual folding of garments](https://pantor.github.io/speedfolding/) and [this video](https://www.youtube.com/watch?v=UTMT2WAUlRw)  # by the author of [frankx](https://github.com/pantor/frankx)
+- #137: [One policy to dress them all: Learning to dress people with diverse poses and garments](https://sites.google.com/view/one-policy-dress/)
+
+</details>
+
+---
+
 **`"Deep Reinforcement Learning with Real-World Data"`**
 
 - **[** `2022` **]**
@@ -1757,6 +1844,8 @@ todo
 - [`Optimal Stroke Learning with Policy Gradient Approach for Robotic Table Tennis`](https://arxiv.org/pdf/2109.03100.pdf)
 
 - [`Agile Catching with Whole-Body MPC and Blackbox Policy Learning`](https://sites.google.com/view/agile-catching)
+
+## labs
 
 - [`Intelligent Autonomous Systems - TU Darmstadt`](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
 
