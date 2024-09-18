@@ -370,6 +370,48 @@ randomization
 
 # :mechanical_arm: sim2real - small projects
 
+**`"DemoStart: Demonstration-led auto-curriculum applied to sim-to-real with multi-fingered robots"`**
+
+- **[** `2024` **]**
+  **[[🎞️](https://sites.google.com/view/demostart)]**
+- **[** _`auto-curriculum`, `distillation`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                       ![](media/2024_bauza_1.gif)                                                                       | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The RL `env` is reset on **states along the recorded demonstration**. States must be **informative for the agent**. [source](https://sites.google.com/view/demostart)* |
+
+Main idea of **DemoStart**:
+- A **demonstration**-led **auto**-curriculum **RL** method.
+- **_"Curriculum"_**: increase the level of the task as the agent progresses. Problem: it can be complicated to **organise the levels**.
+- _Why "auto"?_ A system decides the level.
+  - The task stays the same, but the **initial state of the agent** can be adjusted.
+  - Some successful (yet not perfect) **demonstrations** are recorded in simulation. The RL task can be **instantiated along the trajectory** of the demonstration: if starting close to the end, the task should be easy, and the agent can quickly learn.
+- The starting state should **not be too easy**, but **not too hard**. A heuristic is used to decide.
+
+Miscellaneous:
+- A **sparse reward** function can be used. -> Easier to define!
+- A **three-fingered** robotic hand attached to a Kuka LBR iiwa 14 arm
+- Observation space: **RGB images**!
+  - The RL agent learns from proprioceptive features (e.g. positions and speeds)
+  - The learnt policy (using proprioceptive features) is **distilled** with **behavioural cloning** to be able to work **only with images**.
+- Action space: controlling _joint speed_ or _joint position_?
+  - _"We use **joint position on all tasks** apart from cube reorientation where we use joint velocity"_
+- Simulator: [MuJoCo](https://mujoco.org/) - owned by Google
+- **Domain randomization**
+  - 1) **Perturbations**: _"We apply external force disturbances to any object"_
+  - 2) **Physics**: _"We randomize the friction, mass, and inertia of every joint and body in the scene"_
+  - 3) **Visual**: _"Visual: We randomize the camera poses and lighting"_
+- RBG images are made "realistic" using the **[Filament](https://github.com/google/filament) renderer** and Blender
+
+Comments:
+- Collecting successful demonstrations in simulation may not be easy.
+- No code available.
+
+</details>
+
 **`"Learning to Grasp the Ungraspable with Emergent Extrinsic Dexterity"`**
 
 - **[** `2022` **]**
