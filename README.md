@@ -404,7 +404,13 @@ Miscellaneous:
   - 1) **Perturbations**: _"We apply external force disturbances to any object"_
   - 2) **Physics**: _"We randomize the friction, mass, and inertia of every joint and body in the scene"_
   - 3) **Visual**: _"Visual: We randomize the camera poses and lighting"_
+  - This allows for a zero-shot sim-to-real transfer.
 - RBG images are made "realistic" using the **[Filament](https://github.com/google/filament) renderer** and Blender
+- How are **demonstrations collected in simulation**?
+  - With a [3Dconnexion SpaceMouse](https://3dconnexion.com/uk/product/spacemouse-wireless/)
+  - The **action space differs** from the one of RL task. But this is no problem: only the states are needed.
+  - 2 to 20 demos were recorded depending on the task.
+  - Btw, they also collected demonstrations on the real setup. Not for the training the RL agent. Instead, to train an imitation-leaning model used as baseline.
 
 Comments:
 - Collecting successful demonstrations in simulation may not be easy.
