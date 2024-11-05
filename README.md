@@ -899,6 +899,93 @@ _what `delta-t`?_
 
 # :point_up: not (classical) RL
 
+---
+
+**`"π0: A Vision-Language-Action Flow Model for General Robot Control"`**
+
+- **[** `2024` **]**
+  **[[:memo:](https://www.physicalintelligence.company/download/pi0.pdf)]**
+  **[[🎞️](https://www.youtube.com/watch?v=https://www.physicalintelligence.company/blog/pi0)]**
+
+- **[** _`not RL`, `foundation model`, `dexterous tasks`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                                            ![](media/2024_black_3.png)                                                                                             | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Once the backbone is trained, it can be used either be **used directly** or **fine-tuned** using high-quality data. As for **base / instruct** LLMs. [source](https://www.physicalintelligence.company/blog/pi0)* |
+
+|                                                                                        ![](media/2024_black_1.png)                                                                                         | 
+|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The `π_0` model outputs a **sequence ("chunk") of low-level actions** (`H=50`). Only a fraction is used, and applied in open-loop: 18 or 25. [source](https://www.physicalintelligence.company/blog/pi0)* |
+
+|                                                                                                              ![](media/2024_black_2.png)                                                                                                              | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *`len(q) = len(a) = 18`. For robots with **lower `q` and `a` spaces**, **zero-padding** is applied. For robots with fewer than three images, the **missing image slots are masked out**. [source](https://www.physicalintelligence.company/blog/pi0)* |
+
+|                                                                                                                                    ![](media/2023_brohan_1.png)                                                                                                                                     | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *One question for **vision-language-action** (VLA) models is the **format of the generated action**. In `RT2`, robot actions are **text strings**, i.e. **discrete** (figure above), while `π_0` generates **continuous action distributions**. [source](https://robotics-transformer2.github.io/)* |
+
+In short:
+- > "Our mission at [Physical Intelligence](https://www.physicalintelligence.company/) is to develop **foundation models** that can **control any robot** to perform any task."
+- > "To our knowledge, our work demonstrates the **longest dexterous tasks** in the **end-to-end robot learning** literature." 
+
+Some terms:
+- **Generalist** robot policy
+  - I.e., robot **foundation** model.
+  - > "Just as a person can learn a new skill quickly by drawing on a lifetime's worth of experience, such a **generalist robot policy** could be **specialized to new tasks** with only **modest amounts of data**." 
+- **Vision-language model** (VLM) backbone
+  - A **multimodal** language model.
+  - Based on the [PaliGemma vision-language model](https://huggingface.co/blog/paligemma)
+    - Comparatively **small size** (which is useful for **real-time control**).
+    - **3.3b** = 3b VLM + 0.3b action expert.
+  - > "By basing our model on a VLM, we inherit the general knowledge, **semantic reasoning**, and problem-solving abilities of language- and vision-language models."
+  - > "We then further train our model to incorporate **robot actions**, turning it into a **vision-language-action (VLA) model**."
+- **Cross embodiment** training
+  - Data from many **robot types** is combined into the same model.
+- **Flow matching**
+  - Question: how to **output robot action**?
+  - Previous works: prior **autoregressive VLAs**, such as [RT-2](https://robotics-transformer2.github.io/)
+    - Trained to output only **discrete** language tokens.
+    - Problem: hard to handle **high-frequency action** chunks (up to 50 Hz) and **highly dexterous tasks**.
+    - Solution: augment pre-trained VLMs with **continuous action outputs** via **flow matching**.
+  - > "In order to make it possible to perform **highly dexterous** and intricate physical tasks, we use an **action chunking** architecture with **flow matching** (a variant of **diffusion**) to represent complex **continuous action** distributions."
+  - I.e. it generates **continuous action distributions**. 
+- **Action expert**
+  - A separate set of weights is used for the robotics-specific (action and state) tokens.
+  - > "This design is analogous to a **[mixture of experts](https://huggingface.co/blog/moe)** with **two** mixture elements, where the first element is used for **image and text inputs**, and the **second is used for robotics-specific inputs and outputs**. We refer to the **second set of weights** as the **_action expert_**."
+
+`π_0` model
+- input: 
+  - 2 or 3 images per robot.
+  - **Joint angles**.
+  - A sequence of language tokens (the prompt / instruction).
+    - For some temporally extended tasks (e.g. "bus the table"), a **high-level semantic policy** outputs **intermediate language commands**: more immediate subtasks (such as "pick up the napkin" or "throw the napkin into the trash").
+- output:
+  - "low-level motor commands"
+    - **_what exactly? speed, acceleration, torque?_**
+  - frequency: up to `50 Hz`.
+  - > "Since the model **generates an entire `H=50`-step action chunk at once**, we can execute **up to** `H=50` actions before we need to run inference again."
+    - Action chunks are executed in **open-loop**.
+    - For the `20Hz` UR5e and Franka robots, we run inference every **0.8 seconds** (after executing 16 actions)
+    - For all other robots, which run at `50Hz`, we run inference every **0.5 seconds** (after executing 25 actions).
+
+Training recipe
+- First pre-trained on a **very large and diverse** corpus
+  - Objective: learn to **recover from mistakes** and handle **highly varied situations**.
+  - (>90%) π-dataset (private): Over 10,000 hours of robot data: collected on 7 different robot configurations for **68 different tasks**. Mainly **dual-arm** robots.
+  - (<10%) open-source datasets, such as [OXE](https://robotics-transformer-x.github.io/): 22 robots, with much **simpler tasks**.
+- Then fine-tuned on more **narrow** and more carefully curated data
+  - Objective: learn to **perform the task well**.
+  - Examples: laundry folding, clearing a table, putting dishes in a microwave, stacking eggs into a carton, assembling a box, and bagging groceries. 
+- > "Intuitively, training **only on high-quality data** does not teach the model how to **recover from mistakes**, since mistakes are **rarely seen** in such data. Training on **only lower-quality** pretraining data does not teach the model to **act efficiently and robustly**. Combining both provides the desired behavior: the model attempts insofar as possible to act in a manner similar to the high-quality data, but still has a repertoire of **recoveries and corrections** that it can deploy in the case of a mistake."
+
+</details>
+
+---
+
 **`"Robotic Table Tennis: A Case Study into a High Speed Learning System"`**
 
 - **[** `2023` **]**
