@@ -986,6 +986,121 @@ Training recipe
 
 ---
 
+**`"Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware"`**
+
+- **[** `2023` **]**
+  **[[:memo:](https://arxiv.org/pdf/2304.13705)]**
+  **[[🎞️](https://tonyzhaozh.github.io/aloha/)]**
+
+- **[** _`end-to-end imitation learning`, `transformer`, `low cost hardware`, `action chunking`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                               ![](media/2023_finn_1.png)                                                                                | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The ALOHA **teleoperation system** to collect demonstrations falls into the **"Puppeteering"** collection category. [source](https://cs224r.stanford.edu/slides/cs224r_imitation.pdf)* |
+
+|                                                                                          ![](media/2023_finn_2.png)                                                                                           | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The ALOHA system addresses the **"compounding errors"** problem by generating not just one action, but a **sequence (chunk) of actions**. [source](https://cs224r.stanford.edu/slides/cs224r_imitation.pdf)* |
+
+|                                               ![](media/2023_zhao_1.png)                                                | 
+|:-----------------------------------------------------------------------------------------------------------------------:| 
+| ***Demonstrations** are recoreded with a **Bimanual Teleoperation** system. [source](https://arxiv.org/pdf/2304.13705)* |
+
+|                   ![](media/2023_zhao_2.png)                    | 
+|:---------------------------------------------------------------:| 
+| *Examples of tasks. [source](https://arxiv.org/pdf/2304.13705)* |
+
+|                                                                                                    ![](media/2023_zhao_4.png)                                                                                                    | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *A **conditional VAE** (to model multi-modality) with **Transformer** (to model sequences) is used. Do not mix the "encoders/decoders": the CVAE and the Transformer have their own. [source](https://arxiv.org/pdf/2304.13705)* |
+
+|                                                                              ![](media/2023_zhao_3.png)                                                                              | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *How to improve the **smoothness** of the policy? The **"temporal ensembling"** technique averages across the overlapping action chunks. [source](https://arxiv.org/pdf/2304.13705)* |
+
+In short
+- ALOHA : **A** **L**ow-cost **O**pen-source **Ha**rdware System for Bimanual Teleoperation.
+- > "A low-cost system that performs **end-to-end imitation learning** directly from **real demonstrations**, collected with a **custom teleoperation** interface."
+
+Challenges of IL and solutions (from [CS224R lecture](https://cs224r.stanford.edu/slides/cs224r_imitation.pdf)):
+- 1: Supervised imitation learning struggles with **compounding errors**, particularly at **50 Hz**.
+  - > "Where errors from previous timesteps **accumulate** and cause the robot to **drift off of its training distribution**, leading to **hard-to-recover states**."
+  - Solution: **Action chunking**.
+- 2: Human demonstrations perform tasks in **different ways**, leading to **multimodal data distribution**.
+  - "We emphasize that **all human demonstrations are inherently stochastic**, even though a single person collects all the demonstrations."
+  - Solution: Conditional variational auto-encoder (**VAE**) to **model multimodality**.
+- > "Naive policy training achieves 0% success."
+
+Details
+- **End-to-end** learning for manipulation tasks:
+  - Much simpler than **modeling** the whole environment
+  - Directly maps **RGB images** to the actions
+- A low-cost yet **dexterous teleoperation** system for data collection.
+  - The user **teleoperates** by backdriving the **smaller WidowX** ("the leader"), whose **joints** are synchronized with the **larger ViperX** ("the follower").
+  - 6 degrees of freedom -> **no redundancy**
+  - No need for **inverse kinematics** (IK) module
+  - **Four** logitech C922x webcams, each streaming 480×640 RGB image.
+    - _todo: should these cameras be calibrated?_
+  - Both the **teleoperation** and **data recording** happen at **50Hz**.
+- **Action Chunking** with **Transformers** (ACT), which learns a **generative** model over **action sequences**.
+  - The policy predicts the target joint positions for the **next k timesteps**, rather than just one step at a time.
+  - This reduces the **effective horizon of tasks** (a `k`-fold reduction).
+  - Trade-off: **Drift** vs **open-loop**
+    - `k = 1` corresponds to no **action chunking**
+    - `k = episode_length` corresponds to **fully open-loop control**
+    - `k ~= 60` is selected, i.e. `horizon = 60 * 0.02 = 1.2 s = ~0.8 Hz`.
+- **"Ensembling"** across **overlapping action chunks**.
+  - To improve **smoothness**, the **policy is queried at every timestep!**
+
+Policy:
+- Observation:
+  - The current **joint positions** of follower robots
+  - The image feed from **4 cameras** (_todo: no past observations?_)
+- Output:
+  - **Sequence** of actions: **target joint absolute positions**.
+  - > "Intuitively, ACT tries to imitate what a human operator **would do in the following time steps** given current observations."
+  - **Absolute** joint positions give better results than **delta (relative) joint positions**. 
+
+Conditional variational auto-encoder
+- **`CVAE` decoder**: the **policy**
+  - input (**conditions**):
+    - the **current observations** (images + joint positions)
+      - Images are processed with a **ResNet18**, and eventually flatten along the spatial dimension to obtain a sequence of `300×512`.
+    - `z`: **"style variable"**.
+      - > "At test time, we set z to be the mean of the prior distribution i.e. zero to deterministically decode"
+  - output: the **action sequence**
+- **`CVAE` encoder**: only serves to **train the `CVAE` decoder** and is discarded at test time
+  - input: current **observation** (only its proprioceptive part - images are dropped for speed) and **action sequence**
+  - output: predicts the **mean and variance** of the **style variable `z`**'s distribution, which is parameterized as a diagonal Gaussian 
+- Training recipe:
+  - Maximize the **log-likelihood** of **demonstration action chunks**
+- Standard VAE objective:
+  - a **reconstruction** loss, with L1 instead of the more common L2 loss, 
+  - a term that **regularizes** the encoder to a Gaussian prior
+- Encoder and decoder: **Transformer**
+  - > "Transformers are designed for both synthesizing information across a **sequence** and **generating new sequences**."
+- Inference time: `~0.01` seconds (i.e. `100 Hz`) on a single 11G RTX 2080 Ti GPU.
+
+About **transformers**
+- How are the **output tokens converted to target joint positions**? Does that imply that the actions are discrete?
+- What is the `[CLS]` token? _I would need to look closer at BERT._
+
+As the [CS224r](https://cs224r.stanford.edu/) [lecture on Imitation Learning](https://cs224r.stanford.edu/slides/cs224r_imitation.pdf) concludes: 
+- Is **Imitation Learning** All You Need?
+  - A simple and powerful framework for learning behavior.
+- But:
+  - Collecting expert demonstrations can be difficult or impossible in some scenarios
+  - Learned behavior will **never be better than expert**
+  - Does not provide a framework for **learning from experience**, indirect feedback
+  - Can agents **learn autonomously**, from their own mistakes?
+
+</details>
+
+---
+
 **`"Robotic Table Tennis: A Case Study into a High Speed Learning System"`**
 
 - **[** `2023` **]**
@@ -2006,6 +2121,8 @@ todo
 ## lectures
 
 - [`CS285 Deep Reinforcement Learning`](https://rail.eecs.berkeley.edu/deeprlcourse/)
+
+- [`CS 224R Deep Reinforcement Learning`](https://cs224r.stanford.edu//)
 
 - [`CS287 Advanced Robotics at UC Berkeley Fall 2019`](https://www.youtube.com/playlist?list=PLwRJQ4m4UJjNBPJdt8WamRAt4XKc639wF)
 
