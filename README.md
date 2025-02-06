@@ -901,6 +901,64 @@ _what `delta-t`?_
 
 ---
 
+**`"π0-fast"`**
+
+- **[** `2025` **]**
+  **[[:memo:](https://arxiv.org/abs/2501.09747)]**
+  **[[🎞️](https://www.physicalintelligence.company/research/fast)]**
+  **[[🎞️](https://huggingface.co/blog/pi0)]**
+
+- **[** _`not RL`, `action tokenizer`, `vision-language-action models`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                                                           ![](media/2025_pertsch_1.png)                                                                                                           | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The introduced FAST tokenizer maps any sequence of **robot actions** (continuous) into a **sequence of dense, discrete action tokens** for training autoregressive VLA models. [source](https://www.physicalintelligence.company/research/fast)* |
+
+Motivation:
+- Most foundation models use the **Transformer** architecture, a **sequence** model that operates on **discrete tokens**.
+- Standard **binning-based discretization** techniques (e.g. per-dimension, per-timestep binning) perform poorly when learning **dexterous skills** from **high-frequency** (up to 50 Hz) robot data.
+  - "**Correlations between time steps** are a major challenge for naive tokenization strategies."
+  - "Low token prediction loss can often be achieved with mappings as trivial as simply **copying the most recent action token**, leaving models in poor local optima."
+- **Diffusion** or **flow matching** tends to perform much better. See the `π0 VLA` below.
+  - But **diffusion takes much longer to train**.
+- Question: how to **represent continuous action signal**?
+
+Main idea:
+- > "Robot **action signals** need to be **compressed before training**, to **reduce correlation between consecutive tokens**."
+
+**`FAST`:** Frequency-space **Action Sequence Tokenization**.
+- An **action tokenizer**.
+- Application: it enables training of **autoregressive VLA policies** via simple **next token prediction**.
+- Ingredients:
+  - **Discrete cosine transform** (`DCT`): a technique commonly used for **signal compression**, for instance in JPEG or MP3 codecs.
+    - Because robotic actions are **continuous**.
+  - **Byte pair encoding** (`BPE`): a **compression algorithm** often used for training large language models.
+    - To compress robot action signals before training, in order to **reduce correlation between consecutive tokens**.
+- Output: action chunks, where dense action tokens, typically 30 to 60 per chunk.
+- How to decode?
+  - ...
+
+**`FAST+`**: a universal robot action tokenizer, based on FAST, **trained** on 1M real robot action trajectories. 
+- A good off-the-shelf tokenizer for **training autoregressive VLA models**.
+- What is the **training objective**?
+  - The `BPE` algorithm: replacing the **highest-frequency pair of bytes** with a new byte that was not contained in the initial dataset. Until the **vocabulary size** is reached. 
+- Training on **[DROID dataset](https://droid-dataset.github.io/)**.
+  - A dataset containing diverse robot manipulation tasks that was collected over the span of two years by a large consortium of robotics researchers from around the world.
+
+`π0 VLA + FAST tokeniser`:
+- It manages to train a **generalist policy** on the **full dataset** that can follow language commands in **zero shot** in new environments.
+- > "This gives a glimpse into a future where **we can download and directly use generalist robot policies**, just like we use language models today."
+
+Limitations:
+- The **inference** speed: the **autoregressive decoding** of `π0-FAST` is significantly slower than the **decoding via flow matching** used by `π0`.
+
+</details>
+
+---
+
 **`"π0: A Vision-Language-Action Flow Model for General Robot Control"`**
 
 - **[** `2024` **]**
