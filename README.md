@@ -907,6 +907,7 @@ _what `delta-t`?_
   **[[:memo:](https://arxiv.org/abs/2501.09747)]**
   **[[🎞️](https://www.physicalintelligence.company/research/fast)]**
   **[[🎞️](https://huggingface.co/blog/pi0)]**
+  **[[:octocat:](https://github.com/Physical-Intelligence/openpi)]**
 
 - **[** _`not RL`, `action tokenizer`, `vision-language-action models`_ **]**
 
@@ -939,7 +940,10 @@ Main idea:
     - To compress robot action signals before training, in order to **reduce correlation between consecutive tokens**.
 - Output: action chunks, where dense action tokens, typically 30 to 60 per chunk.
 - How to decode?
-  - ...
+  - "Since all operations are invertible, actions can be reconstructed efficiently and losslessly from tokens."
+- What hyperparameters?
+  - The **scaling coefficient** applied before rounding.
+  - The **BPE vocabulary size**.
 
 **`FAST+`**: a universal robot action tokenizer, based on FAST, **trained** on 1M real robot action trajectories. 
 - A good off-the-shelf tokenizer for **training autoregressive VLA models**.
