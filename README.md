@@ -370,6 +370,112 @@ randomization
 
 # :mechanical_arm: sim2real - small projects
 
+**`"Sim-to-Real Reinforcement Learning for Vision-Based Dexterous Manipulation on Humanoids"`**
+
+- **[** `2025` **]**
+  **[[🎞️](https://toruowo.github.io/recipe/)]**
+- **[** _`sim-to-real`, `learning-from-demonstration`, `multi-fingered hands`, `isaac-sim`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                    ![](media/2025_lin_1.gif)                     | 
+|:----------------------------------------------------------------:| 
+| *Some of the tests. [source](https://toruowo.github.io/recipe/)* |
+
+|                               ![](media/2025_lin_1.png)                               | 
+|:-------------------------------------------------------------------------------------:| 
+| *Four challenges and proposed solutions. [source](https://toruowo.github.io/recipe/)* |
+
+|                                                                                             ![](media/2025_lin_2.png)                                                                                             | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Overview. In one sentence: **learning-from-demonstrations**, where **demonstrations are collected from learnt RL sub-task policies** in the simulation environment. [source](https://toruowo.github.io/recipe/)* |
+
+|                         ![](media/2025_lin_3.png)                         | 
+|:-------------------------------------------------------------------------:| 
+| *Domain randomization setup. [source](https://toruowo.github.io/recipe/)* |
+
+**Four challenges** and proposed **solutions**:
+- Challenge-1: **environment modeling** when using a **simulator**: **sim-to-real** gap.
+  - **Simulation parameters** are **adjusted automatically** to closely match real-world conditions.
+  - > "The `autotune` module enables rapid **calibration of simulator parameters** to match real robot behavior by automatically searching the parameter space to identify optimal values for both simulator physics and robot model constants in under four minutes (or `2000` simulated steps in `10 Hz`)."
+  - Which parameters? Not detailed.
+    - Simulator physics parameters affecting kinematics and dynamics.
+    - Robot model constants from the URDF file (including link inertia values, joint limits, and joint/link poses).
+
+- Challenge-2: **reward design** for **contact-rich** and **long-horizon** **manipulation** tasks.
+  - The idea is to disentangle a full task into intermediate **"contact goals"** and **"object goals"**.
+  - > "each motion sequence to execute a task can be defined as a combination of **hand-object contact** and **object states**."
+  - Example for the **handover** task:
+    - (1) `contact-state`: hand-A contacting the object
+      - -> `contact-goal`: penalizing the distance from fingers to desirable contact points.
+    - (2) `object-state`: object being lifted to a position near the hand-B
+      - -> `object-goal`: penalizing the distance from the object to the desirable position.
+    - (3) `contact-state`: hand-B contacting the object
+      - -> `contact-goal`
+    - (4) `object-state`: object being transferred to the final goal position
+      - -> `object-goal`
+
+- Challenge-3: **Sample efficient** policy learning (**exploration** problem in **sparse reward settings**).
+  - **Divide-and-conquer** + **distillation** process: One idea is to divide the challenging task into easier sub-tasks, then **distilling the subtask specialists** into **a generalist policy**.
+    - I.e. break down the **explorable state** space itself.
+    - Example: a **multi-object** manipulation task can be divided into multiple **single-object** manipulation tasks.
+    - > "This effectively brings RL closer to **learning from demonstrations**, where the sub-task policies act as teleoperators for **task data collection** in the simulation environment, and the **generalist policy** acts as a centralized model trained from curated data."
+    - > "For each **sub-task specialist policy**, we evaluate for **5000 steps** over **100 environments**, saving trajectories filtered **by success** at episode reset on the hard disk. We then **treat the saved data as "demonstrations"** and learn a generalist policy for each task with [**Diffusion Policies**](https://diffusion-policy.cs.columbia.edu/)."
+  - Task-aware hand poses for initialization: A second idea is to start training episodes at **states recorded** from demonstrations (with teleoperation).
+
+- Challenge-4: dilemma in object representation: we need to learn (1) and then transfer (2).
+  - Object representations that are **more expressive and information-dense** can improve dexterity and **capability** of the learned policy, they also present a **larger sim-to-real gap**.
+  - A mixture of **low-dimensional** (sparse) and **high-dimensional** (dense) object representation is proposed.
+    - a low-dimensional **3D object position** (obtained from a **third-view camera** to ensure the object is also in camera view)
+    - a high-dimensional **depth image**
+
+Other info about the RL problem formulation:
+- `action` space:
+  - normalized 7 DoF **absolute desired joint positions** of each humanoid **arm**
+  - normalized (0 to 1) 6 DoF desired **joint positions** of each humanoid **hand**
+  - the desired joint positions are apparently applied using a **PD controller**.
+- Policy's control frequency = **5 Hz**.
+- Perception pipeline's frequency = **5 Hz**.
+
+Domain randomization
+- Physical randomization:
+  - **noise** on:
+    - object friction
+    - mass
+    - scale
+  - Also, **random forces** are applied to the object to simulate the physical effects that are **not implemented by the simulator**.
+- **Non-physical randomization**: noise in
+  - observation (e.g., joint position measurement and detected object positions)
+  - action
+  - Also, some **lag is applied** to the **action** and the **observation**.
+
+Hardware:
+- **[Fourier GR1](https://www.fftai.com/products-gr1) humanoid robot** with two 7-DoF arms and two multi-fingered hands.
+  - The Fourier hands have 6-actuated-DoFs and 5-underactuated-DoFs.
+  - This means that each hand has a total of 11 DoFs, but **only 6 are directly controlled** via motors.
+  - Since the simulator (Isaac Gym) does not natively support **underactuated joints**, the behaviour is approximated mathematically by fitting a linear function `qu = k · qa + b` (`q` is the joint angle).
+  - > "We find ourselves heavily constrained by the **lack of reliable hardware** for **dexterous manipulation**. While we use **multi-fingered robot hands**, the dexterity of these hands is far from that of human hands in terms of the **active degrees of freedom**."
+- RealSense D435 depth cameras: one for the **third-view** and one for the **robot's head**.
+
+Software:
+- NVIDIA **Isaac Gym** simulator.
+  - Which RL framework? `rl-games`?
+- **Segment Anything Model 2** (`SAM2`) to generate a segmentation mask, which is tracked throughout all remaining frames.
+- > "To approximate the 3D center-of-mass coordinates of the object **(sparse representation)**, we calculate the **center position** of their masks in the image plane, then obtain noisy **depth readings** from a depth camera to recover a corresponding 3D position."
+- PPO: In addition to the **policy inputs**, the following **privilege state inputs** are **provided to the asymmetric critic**:
+  - arm joint velocities,
+  - hand joint velocities,
+  - all fingertip positions,
+  - object orientation,
+  - object velocity,
+  - object angular velocity,
+  - object mass randomization scale,
+  - object friction randomization scale,
+  - object shape randomization scale.  
+
+</details>
+
 **`"DemoStart: Demonstration-led auto-curriculum applied to sim-to-real with multi-fingered robots"`**
 
 - **[** `2024` **]**
