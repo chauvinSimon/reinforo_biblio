@@ -395,6 +395,10 @@ randomization
 |:-------------------------------------------------------------------------:| 
 | *Domain randomization setup. [source](https://toruowo.github.io/recipe/)* |
 
+|                             ![](media/2025_lin_2.gif)                              | 
+|:----------------------------------------------------------------------------------:| 
+| *RL helps **discovering strategies**. [source](https://toruowo.github.io/recipe/)* |
+
 **Four challenges** and proposed **solutions**:
 - Challenge-1: **environment modeling** when using a **simulator**: **sim-to-real** gap.
   - **Simulation parameters** are **adjusted automatically** to closely match real-world conditions.
