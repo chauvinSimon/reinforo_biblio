@@ -387,9 +387,9 @@ randomization
 |:-------------------------------------------------------------------------------------:| 
 | *Four challenges and proposed solutions. [source](https://toruowo.github.io/recipe/)* |
 
-|                                                                                             ![](media/2025_lin_2.png)                                                                                             | 
-|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
-| *Overview. In one sentence: **learning-from-demonstrations**, where **demonstrations are collected from learnt RL sub-task policies** in the simulation environment. [source](https://toruowo.github.io/recipe/)* |
+|                                                                                           ![](media/2025_lin_2.png)                                                                                            | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Overview. In one sentence: **learning-from-demonstrations**, where demonstrations are **not collected manually**, but from **RL policies trained on sub-tasks**. [source](https://toruowo.github.io/recipe/)* |
 
 |                         ![](media/2025_lin_3.png)                         | 
 |:-------------------------------------------------------------------------:| 
@@ -479,6 +479,8 @@ Software:
   - object shape randomization scale.  
 
 </details>
+
+---
 
 **`"DemoStart: Demonstration-led auto-curriculum applied to sim-to-real with multi-fingered robots"`**
 
@@ -1011,6 +1013,94 @@ _what `delta-t`?_
 
 ---
 
+**`"`Hi Robot`: Open-Ended Instruction Following with Hierarchical Vision-Language-Action Models"`**
+
+- **[** `2025` **]**
+  **[[:memo:](https://arxiv.org/pdf/2502.19417)]**
+  **[[🎞️](https://www.physicalintelligence.company/research/hirobot)]**
+
+- **[** _`hierarchy`, `vision-language-action models`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                   ![](media/2025_shi_2.png)                                   | 
+|:---------------------------------------------------------------------------------------------:| 
+| *Hierarchical structure. [source](https://www.physicalintelligence.company/research/hirobot)* |
+
+|                                 ![](media/2025_shi_1.png)                                  | 
+|:------------------------------------------------------------------------------------------:| 
+| *Different use-cases. [source](https://www.physicalintelligence.company/research/hirobot)* |
+
+|                                                                                                                           ![](media/2025_shi_3.png)                                                                                                                            | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Comparison: why **training the high-level policy** (with data labelled by a pre-trained VLM)? Why not using **GPT-4o** as the **high-level visual-language-model (VLM)** to **decide the next command**? [source](https://www.physicalintelligence.company/research/hirobot)* |
+
+> "Hierarchical Interactive ROBOT learning system = `Hi Robot`"
+
+main idea: **hierarchical** structure using **vision-language models** (**VLMs**) for both **high-level reasoning** and **low-level task execution**
+
+current limitations:
+- The **`π0` VLA** can follow a wide variety of **language prompts**, but is typically limited to **simple and atomic commands**.
+  - It cannot handle **complex prompts** and **feedback**.
+- > "With human high-level instructions, the low-level policy executes nearly flawlessly, showing that **failures stem more from reasoning than actuation**."
+  - However, solely relying on human input is **not scalable**.
+  - > "`Hi Robot` bridges this gap via a **high-level VLM that aligns** with user prompts and real-time observations, whereas **GPT4o’s lack of physical grounding** and the flat baseline’s lack of high-level reasoning hinder performance."
+
+hierarchy:
+- first **reasoning** over **complex prompts** and **user feedback** to deduce the most appropriate **next step** to fulfill the task
+  - using a **first VLM**
+- then **performing** that step with **low-level actions**
+  - using a **second VLM** fine-tuned for **producing robotic actions**
+
+Analogy with **human cognitive processes**:
+- `System-1` feels **instinctual** and **automatic**.
+  - -> low-level: "When you do something for the 100th time, that's System 1: it feels automatic, and you hardly think about it."
+- `System-2` is **deliberative and conscious**.
+  - -> high-level: That **little "voice"** that tells what to do when presented with a **complex task**.
+
+quotes:
+- > "the job of the **high-level policy** is to take in the **overall task prompt** and accompanying context, in the form of images and user interactions, and translate it into a suitable task for the robot to do at this moment, that the **low-level policy** is likely to understand."
+- > "The benefit of this **hierarchical inference process** is in situations where either the **prompt `ℓt` is too complex** for the low-level policy to parse, **too unfamiliar** in the context of the robot data, or involves **intricate interactions** with the user"
+
+what frequencies?
+- the **low-level process** produces action chunks at a **high frequency**.
+- the **high-level process** is invoked less often, either after a set time or upon receiving new language feedback
+  - It is **slower**, but **less sensitive to quick changes**
+  - > "we rerun high-level inference and recompute `ˆℓt` either when **one second has elapsed**, or when a **new interaction** with the user takes place"
+
+The two **VLMs** are based on **PaliGemma-3B**:
+- the **low-level** policy is the **`π0` VLA**
+  - it uses flow-matching to **output the actions**
+- the **high-level** policy is fine-tuned on the **image-language tuples** to predict **low-level language commands** (which the low-level VLM then executes)
+  - e.g. `input=(image observations, high-level language commands)` -> `output=low-level language command (=labeled skill)`
+  - the training data is collected from both:
+    - **Human-labeled** demonstrations 
+    - **Synthetic data generation**: given an **image observation** and a **labeled skill** (e.g., "pick up the lettuce"), a **pre-trained VLM** imagines a **plausible user prompt** (e.g., _"Can you add some lettuce for me?"_) and an **optional verbal response** (e.g., _"Got it!"_ or _"Oops, sorry!"_), spoken to the user.
+  - This approach helps simulate naturalistic human-robot interactions, including:
+    - **User constraints** (“I’m allergic to pickles”)
+    - **Corrections** (“That’s not trash”)
+    - **Multi-stage instructions** (“Make me a sandwich with cheese and roast beef”)
+
+  - why training the high-level policy? Isn't prompt engineering enough? They tried it with **GPT-4o**.
+    - GPT-4o lacks **real-world grounding**: it was not trained specifically for **robotic execution**.
+    - > "GPT-4o frequently loses context once physical interaction begins, issuing **nonsensical commands** (e.g., “pick up bermuda triangle”) or sometimes labeling everything as “plate” or “spoon,” which disrupts long-horizon planning"
+    - > "GPT-4o, however, often fails to **maintain a coherent internal state**, leading to commands like picking up new objects when the gripper is still occupied or **prematurely switching tasks**"
+
+advantages (apart from the hierarchical benefits):
+- **interpretable**: the model can **explain** its reasoning
+- possibility to incorporate **feedback during task execution** 
+
+improvement ideas:
+- A single model instead of two
+  - The model could adaptively **decide when to think** at a high level vs. **act** at a low level, rather than always following a fixed hierarchical structure.
+  - This adaptive system could **dynamically decide** when to re-plan and when to execute.
+- Let the high-level policy "see" if the low-level policy is struggling and adapt accordingly.
+
+</details>
+
+---
+
 **`"π0-fast"`**
 
 - **[** `2025` **]**
@@ -1153,6 +1243,11 @@ Training recipe
   - Objective: learn to **perform the task well**.
   - Examples: laundry folding, clearing a table, putting dishes in a microwave, stacking eggs into a carton, assembling a box, and bagging groceries. 
 - > "Intuitively, training **only on high-quality data** does not teach the model how to **recover from mistakes**, since mistakes are **rarely seen** in such data. Training on **only lower-quality** pretraining data does not teach the model to **act efficiently and robustly**. Combining both provides the desired behavior: the model attempts insofar as possible to act in a manner similar to the high-quality data, but still has a repertoire of **recoveries and corrections** that it can deploy in the case of a mistake."
+
+How does the model know **which robot is used**?
+- Apparently, the model **does not explicitly encode the geometry / kinematics** of each robot embodiment.
+- Maybe it can **infer this information** from sensor data and the number of active inputs.
+- If two robots have the **same DoFs but different geometries**, this will not work, I guess?
 
 </details>
 
