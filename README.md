@@ -1285,6 +1285,59 @@ Example 2:
 
 ---
 
+**`"Embodied AI with Two Arms: Zero-shot Learning, Safety and Modularity"`**
+
+- **[** `2024` **]**
+  **[[:memo:](https://arxiv.org/pdf/2404.03570)]**
+  **[[:memo:](https://sites.google.com/view/safe-robots?pli=1)]**
+
+- **[** _`modularity`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                ![](media/2024_varley_1.png)                | 
+|:----------------------------------------------------------:| 
+| *Architecture. [source](https://arxiv.org/pdf/2404.03570)* |
+
+Main idea: Composing **both learning-** and **non-learning based components** in a **modular fashion** with **interpretable inputs and outputs** allows the user to easily debug points of failures and fragilities.
+
+Modules:
+- Fine-tuned Large Language Models for **task planning**: high-level reasoner
+  - to map **natural language** requests to **robot code**
+  - a **slow “thinker”** running a multi-billion parameter model **off-robot on the cloud**
+- Vision-Language models for **semantic perception**
+  - [OWL-ViT](https://huggingface.co/docs/transformers/en/model_doc/owlvit): Vision Transformer for Open-World Localization
+- Point Cloud transformers for **grasping**
+  - The PCT-policy generates an SE(3) **grasp pose** defined by:
+    - the **fingertip position**, relative to the object center,
+    - the **grasp direction** vector in the workspace frame,
+    - a **rotation angle** about this direction vector.
+  - The trajectory for the arm to execute the grasp is generated using the **constrained trajectory optimization** solver.
+- Real-time **trajectory optimizer**
+  - SQP Motion Planner: Sequential Quadratic Programming
+  - **fast** control loops executing directly on the robot hardware
+- **Compliant tracking** controller
+  - a **joint-space compliant torque** controller, consisting of a feedforward and PD-feedback law
+  - the **stiffness** and **damping** parameters are **tunable**
+
+Safety levels:
+- **semantic**
+  - provided in particular by LLMs capable of processing complex textual instructions
+- **physical**
+  - SQP-driven trajectory optimization (e.g. to avoid collisions)
+  - compliant controllers (for the regulation of the applied forces)
+
+Training of the grasping policy net:
+- "The bi-arm **grasping policy** leverages a novel **point cloud transformer** (as a backbone) and is **trained entirely in simulation**"
+  - developed using PyBullet
+- **Blackbox/ES optimization** techniques
+  - "in contrast to regular backpropagation strategies; we found **ES optimization much more stable**"
+
+</details>
+
+---
+
 **`"Hi Robot: Open-Ended Instruction Following with Hierarchical Vision-Language-Action Models"`**
 
 - **[** `2025` **]**
@@ -1950,20 +2003,76 @@ authors of the [`Transporter Networks: Rearranging the Visual World for Robotic 
 - **[** `2023` **]**
   **[[:memo:](https://palm-e.github.io/assets/palm-e.pdf)]**
   **[[🎞️](https://palm-e.github.io/)]**
-- **[** _`not RL`, `LLM`_ **]**
+- **[** _`not RL`, `LLM`, `multimodal`, `task-level plans`_ **]**
 
 <details>
   <summary>Click to expand</summary>
+
+
+|           ![](media/2023_driess_1.gif)            | 
+|:-------------------------------------------------:| 
+| *description [source](https://palm-e.github.io/)* |
 
 > Given `<img>`
 > Q: How to grasp the green object?
 > A: First grasp the orange object and place it on the table, then grasp the green object.
 
-The low-level policies are also obtained with [[`Deep Visual Reasoning: Learning to Predict Action Sequences for Task and Motion Planning from an Initial Scene Image`](https://arxiv.org/abs/2006.05398)][[🎞](https://www.youtube.com/watch?v=3Nguz6sg_1M)]
+Output format depends on the use case:
+- For **Reasoning Tasks** → Outputs textual plans like PaLM.
+  - _"Pick up the apple and place it in the basket."_
+- For **Robotics Control** → Outputs structured action representations that can be interpreted by a **low-level controller** like RT-1.
+  - _"Move to (x1, y1), grasp object, move to (x2, y2), release."_
+  - _"Grasp the handle with moderate force."_
 
-| ![](media/2023_driess_1.gif) | 
-|:--:| 
-| *description [source](https://palm-e.github.io/)* |
+The **low-level** policies are also obtained with [[`Deep Visual Reasoning: Learning to Predict Action Sequences for Task and Motion Planning from an Initial Scene Image`](https://arxiv.org/abs/2006.05398)
+- [🎞](https://www.youtube.com/watch?v=3Nguz6sg_1M)
+
+Related to [Pathways Language Model](https://arxiv.org/abs/2204.02311).
+- PaLM is a **pure language model** (LLM), so it **does not directly encode robotic actions**.
+- It generates text-based reasoning or **task plans**, but it doesn’t directly control a robot.
+- Another system (e.g., `RT-1` or a policy network) translates its output into robot commands.
+
+| Feature              | **RT-1** (Discrete Actions)         | **PaLM-E** (Reasoning & Actions)        |
+|----------------------|-------------------------------------|-----------------------------------------|
+| **Input**            | Images + Text                       | Images + Text + Sensor Data             |
+| **Output**           | Discrete action tokens              | Text plans or structured commands       |
+| **Action Execution** | Direct robot control                | Needs a low-level controller like RT-1  |
+| **Task Type**        | Low-level motion (grasping, moving) | High-level reasoning (multi-step plans) |
+
+</details>
+
+---
+
+**`"RT-1: Robotics Transformer for Real-World Control at Scale"`**
+
+- **[** `2022` **]**
+  **[[:memo:](https://arxiv.org/abs/2212.06817)]**
+  **[[🎞️](https://robotics-transformer1.github.io/)]**
+- **[** _`not RL`, `LLM`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+In RT-1, **actions** are **encoded as discrete tokens**, similar to how transformer models process language.
+- RT-1 predicts **action tokens autoregressively**, just like an LLM predicts words.
+- 256 action bins per dimension
+
+Example Action Encoding Flow
+- Input:
+  - Image (robot sees a table with an apple).
+  - Instruction: _"Pick up the apple and place it in the bin."_
+- RT-1 Predicts **Discrete Action Tokens**:
+  - Move end-effector to (x1, y1, z1) → Token `45`
+  - Adjust gripper orientation (roll, pitch, yaw) → Token `132`
+  - Close gripper → Token `8`
+  - Move to (x2, y2, z2) (bin location) → Token `78`
+  - Open gripper (release apple) → Token `3`
+- Output:
+  - A sequence of **discrete action tokens** that control the robot’s movement step by step.
+
+|             ![](media/2022_brohan_1.png)             | 
+|:----------------------------------------------------:| 
+| *[source](https://robotics-transformer1.github.io/)* |
 
 </details>
 
@@ -1971,7 +2080,8 @@ The low-level policies are also obtained with [[`Deep Visual Reasoning: Learning
 
 **`"High Acceleration Reinforcement Learning for Real-World Juggling with Binary Rewards"`**
 
-- **[[:memo:](https://arxiv.org/abs/2010.13483)]**
+- **[** `2023` **]**
+  **[[:memo:](https://arxiv.org/abs/2010.13483)]**
   **[[🎞️](https://sites.google.com/view/jugglingbot)]**
 - **[** _`no sim`, `1-step`, `expert init`_ **]**
 
