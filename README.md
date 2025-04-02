@@ -1037,6 +1037,14 @@ _what `delta-t`?_
 |:-------------------------------------------------------------------------------------:| 
 |  *Embodied Reasoning Question Answering. [source](https://arxiv.org/pdf/2503.20020)*  |
 
+|                                        ![](media/2025_gemini_7.png)                                         | 
+|:-----------------------------------------------------------------------------------------------------------:| 
+| *`Gemini Robotics-ER` VL model and `Gemini Robotics` VLA model. [source](https://arxiv.org/pdf/2503.20020)* |
+
+|                                        ![](media/2025_gemini_8.png)                                         | 
+|:-----------------------------------------------------------------------------------------------------------:| 
+| *Example of answers, including **code, planning and analysis**. [source](https://arxiv.org/pdf/2503.20020)* |
+
 |                                                                                            ![](media/2025_gemini_4.png)                                                                                            | 
 |:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
 | *Prompt example on how to prompt Gemini 2.0 to elicit Embodied Reasoning capabilities. [source](https://colab.sandbox.google.com/github/google-gemini/cookbook/blob/main/examples/Spatial_understanding_3d.ipynb)* |
@@ -1092,10 +1100,15 @@ From `Gemini 2.0`, **two models** are introduced:
 - `Gemini Robotics` built on top of the `Gemini Robotics-ER model`
   - A Vision-Language-**Action** (`VLA`) model that outputs **low-level action chunks** (with multiple actions contained)
   - That connects strong embodied reasoning priors to **dexterous** **low-level control**
+  - Many infos missing:
+    - Are actions about **joint speed, joint position or cartesian** gripper pose?
+    - How are actions **encoded**?
+    - **How many actions** in a chunk?
+    - Is **padding included** to transfer to other embodiments? (one robot can have 7 DoF, another 6 DoF)
 
 Two **applications** of the `VL` model:
 - #1: **zero-shot** (via robot **code generation**)
-  - Gemini 2.0 is initially passed a system prompt, a description of the robot API, and the task instructions.
+  - Gemini 2.0 is initially passed a system prompt, a description of the **robot API**, and the task instructions.
   - Then Gemini 2.0 iteratively **takes in images** that show the current state of the scene, the **robot state**, and execution feedback ...
   - ... and **outputs code** that is **executed** in the environment to control the robot
 - #2: **few-shot** (via **in-context learning**).
@@ -1113,8 +1126,104 @@ From `VL` to `VLA` model:
   - The **end-to-end latency** from raw observations to **low-level action chunks** is approximately **250ms**
   - With **multiple actions** in the chunk, the effective control frequency is **50Hz**
 
-Specialisations:
-- 
+Specialisations (fine-tuning the model with a **narrow set of high-quality data**):
+- more challenging **long-horizon** dexterous tasks
+- **semantically-grounded** embodied reasoning. E.g. _"pack the smallest coke soda in the lunch-box"_, while the concept "smallest" is unseen in the training action data label distribution
+- **novel tasks**
+- **new robot embodiments**
+  - it was trained with the action data collected on **ALOHA 2**
+  - adding now:
+    - **bi-arm Franka** robot with parallel grippers
+    - [**Apollo** from Apptronik](https://apptronik.com/apollo), a full-size **humanoid robot** with five-fingered dexterous hands
+- > "We curate between **2000 and 5000 episodes** of **high-quality demonstration data** for each task, and fine-tune the `Gemini Robotics` checkpoint"
+
+Benchmarks:
+- `𝜋0` re-implement
+  - A **VLA** consisting of a **diffusion transformer “action expert” policy** that attends to latents from an underlying **PaliGemma VLM**
+- a [**multi-task diffusion policy**](https://arxiv.org/abs/2303.04137) (inspired by [ALOHA Unleashed](https://arxiv.org/abs/2410.13126) but modified to **be task-conditioned**)
+  - A **CLIP text encoder** is added to **encode the natural language task string**, while the original model of Aloha Unleashed only works in **single-task** settings
+- a single-task diffusion policy
+
+Next steps:
+- Integrate **abstract reasoning** with **precise execution**
+  - The current numerical predictions (e.g., points and boxes) **may not be precise enough** for more fine-grained robot control tasks
+- Use **simulated data**
+- Improve the **cross-embodiment transfer**
+  - to reduce the data needed to **adapt to new robot types** 
+
+---
+
+Part of the prompt for the **zero-shot** application (via robot **code generation**):
+
+```text
+You are provided with a **robot API to execute commands** on the robot to complete the task.
+...
+After enumerating all the steps, **write python code** to execute each step for one step at a time on the **robot using the API provided**.
+```
+
+Below is the **Robot API Interface** Documentation:
+```python
+class Gripper(enum.Enum):
+    LEFT = "left_gripper"
+    RIGHT = "right_gripper"
+
+class RealAlohaRobotApi:
+  """Interface for interacting with the AlohaSim robot in CodeGen with a grasp pose prediction model.
+  """
+  def close_gripper(self, gripper: __main__.Gripper = <Gripper.LEFT: ’left_gripper’>):
+    """Closes the given gripper.
+    """
+  def detect_objects(self, object_names):
+    """Use this function to detect the XYZ centroid and size of objects in the scene.
+    The size is calculated based on a z-aligned bounding box where width is placed along the xaxis, depth is placed along the y-axis and height is placed along the z-axis.
+    Args:
+    object_names: This is a list of strings containing the object names. The object names can
+    include a brief description of the object or object part.
+    Returns:
+    A dictionary with the keys being the detection labels and the values being another
+    dictionary containing the XYZ ‘position‘ and ‘size‘ of the detected objects.
+    Note that the detection labels are usually the same as object names but not always.
+    """
+  def get_grasp_position_and_euler_orientation(self, gripper: __main__.Gripper, object_name: str, part_name: str = ’middle’) -> tuple[numpy.ndarray, numpy.ndarray]:
+    """Returns the grasp position and orientation for the given object and gripper. Make sure the
+    robot arms are out of the way before calling this function to ensure a good grasp.
+    Args:
+    gripper: The gripper to use to grasp the object.
+    object_name: The name of the object to grasp.
+    part_name: The name of the part of the object to grasp. By default, this is ’middle’.
+    Returns:
+    The grasp position and orientation for the given object and gripper.
+    """
+  def get_image(self):
+    """Returns the image of the current camera.
+    """
+  def move_gripper_to(self, position, orientation, gripper: __main__.Gripper = <Gripper.RIGHT: ’right_gripper’>):
+    """Moves the gripper to the given position and orientation.
+    Args:
+    gripper: The gripper to move.
+    position: The target position to move the gripper to in XYZ.
+    orientation: The the target orientation euler angles (roll, pitch, yaw) in degrees.
+    """
+  def move_gripper_to_safe_position(self, gripper: __main__.Gripper) -> bool:
+    """Moves the given gripper to a safe position out of the table area.
+    This is also its initial homeposition.
+    Args:
+    gripper: The gripper to move. Use ’LEFT’ or ’RIGHT’ to specify the gripper.
+    Returns:
+    True if the gripper was moved successfully, False otherwise.
+    """
+  def open_gripper(self, gripper: __main__.Gripper = <Gripper.LEFT: ’left_gripper’>):
+    """Opens the given gripper.
+    """
+  def reset(self):
+    """Resets the robot to its initial state.
+    """
+  def state_description(self) -> str:
+    """Returns a text description of the current robot state.
+    """
+```
+
+---
 
 **Safety** considerations:
 - https://asimov-benchmark.github.io/
