@@ -446,6 +446,8 @@ Are all the **7 joints used**? Or are **some redundant joints frozen**?
 
 Can the real robot provide **force measurements**? In **which space**? Cartesian or joint space? How often are these read?
 - The Panda's **joint-torque sensors** are **projected to EE-frame forces** for the policy.
+- See probably [`◆ O_F_ext_hat_K`](https://frankarobotics.github.io/libfranka/0.15.3/structfranka_1_1RobotState.html#a5a830b4f9d6a3c2dc92e4a9cc6050493)
+  - > _"Estimated external wrench (force, torque) acting on stiffness frame, expressed relative to the base frame. Unit: `[N, N, N, N/m, N/m, N/m]`"_
 - Force is observed in **Cartesian (EE) space**.
 - Frequency: Not explicitly stated, but likely read at the low-level controller rate of 1000 Hz, as it aligns with FCI’s torque control loop.
 
@@ -480,6 +482,8 @@ Can this really be called "Impedance"?
 - It creates a **compliant behaviour**: the EE is **pulled toward the target**, but external contact forces deflect it naturally.
 - The RL policy provides the **moving “anchor point”** of that spring.
 - The stiffness `kp` and damping `kd` control how strongly the robot pushes against obstacles.
+- This [`libfranka` example](https://frankarobotics.github.io/libfranka/0.15.3/cartesian_impedance_control_8cpp-example.html) look similar.
+  - _"Impedance" there = Cartesian PD spring–damper with gravity/Coriolis compensation, mapped to joint torques via the Jacobian._
 
 Is the **impedance controller** used in real setup also used in the simulation loop?
 - Yes, the impedance controller is used in the simulation loop.
