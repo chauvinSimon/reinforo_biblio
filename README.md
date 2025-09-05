@@ -370,6 +370,138 @@ randomization
 
 # :mechanical_arm: sim2real - small projects
 
+**`"FORGE: Force-Guided Exploration for Robust Contact-Rich Manipulation under Uncertainty"`**
+
+- **[** `2025` **]**
+  **[[🎞️](https://noseworm.github.io/forge/)]**
+  **[[🎞️](https://slideslive.com/38994174/insights-towards-sim2real-contactrich-manipulation)]**
+- **[** _`sim-to-real`, `impedance`, `force`, `isaac-sim`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                            ![](media/2025_noseworthy_1.gif)                                                                            | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Three **insertion tasks**. The default franka **fingers** seem to have been replaced for more stable manipulation. [source](https://noseworm.github.io/forge/static/forge_paper.pdf)* |
+
+In short: Policies are trained to handle **pose uncertainty** of the fixed part and learn **contact-guided search**.
+
+Software used:
+- ["Factory" envs in isaaclab](https://isaac-sim.github.io/IsaacLab/main/source/overview/environments.html#contact-rich-manipulation)
+- [`FrankaPy` (which interfaces with the FCI)](https://github.com/iamlab-cmu/frankapy) Apparently **ROS-based**.
+
+Some **good ideas**:
+- start close to the fixed part. No need to learn the approaching motion.
+- add previous actions to observation.
+- do not end episode on hard contact. But penalize it.
+- provide privileged state for critic
+- the force-threshold `F_th` is **conditioned into the policy**
+  - I.e. `F_th` is part of the observation and the policy is trained to consider it.
+- no live vision system (in most experiments)
+
+---
+
+What is the **initial state/configuration**? In particular, does the robot start close to the object, or should it also **learn to navigate** close to it?
+- One part is grasped by the robot gripper.
+- The mating part is fixed on the workspace.
+- The robot starts **close to the fixed part** (implied by the task setup and small action bounds ~5 cm), so it **does not need to learn long-range navigation**.
+
+How can the robot gripper and the grasped objects are **reset / re-initialized in the simulator**? It can be tricky to do so in isaac-sim / isaac-lab.
+- Challenges like collision or **precise grasping** are not addressed
+- Maybe using a [loop like this](https://github.com/isaac-sim/IsaacLab/blob/main/source/isaaclab_tasks/isaaclab_tasks/direct/factory/factory_env.py#L798).
+- _Or the held object (e.g. nut) is assumed to be **rigidly grasped** by the gripper (so fixed), and its pose is likely inferred indirectly through the EE pose?_
+  - Variability in the nut’s initial position within the gripper (due to picking) is not addressed
+  - For tasks like insertion, where precise alignment is critical, unmodeled slippage or picking variability could reduce success rates.
+
+What is the **action space**? Task space such as translations in XYZ? Or joint space (position/velocity/torque)?
+- Task-space (Cartesian) actions: a 4-D relative **pose command** over `x`, `y`, `z`, `yaw`, fed to a **task-space impedance controller**.
+  - `x`, `y`, `z` are expressed **relative to the fixed part**.
+- This (`x`, `y`, `z`, `yaw`) action is converted into a **target EE pose `p_targ`** (position + yaw rotation).
+  - This target is bounded/clipped to stay within ~5 cm of the EE.
+- `p_targ` is fed to a **task-space impedance controller**.
+
+From this action, what is the command sent to the robot? Using the **FCI** of franka robot. If using cartesian actions, which module compute the **inverse kinematics**?
+- **Policy → `ΔPose` → Impedance → `F_targ` → Franka (FCI) → `Joint torques`.**
+- Inverse kinematics: Handled internally by the Franka controller, not explicitly computed by the policy or impedance controller.
+
+At which **frequency** are actions decided (the delta-t between policy inferences)? At which frequency are commands sent to the robot?
+- Policy (decision) rate: `15 Hz` (actions updated every ~66.7 ms).
+- Low-level controller rate: `1000 Hz` on the robot. This is the max rate of FCI.
+
+What is the **observation space**? Probably some force and position? Is the force a `xyz` vector?
+- **Noisy EE pose** and velocity `p_ee` and `v_ee`.
+- Estimated **contact force** at the EE `F_ee` (xyz force vector, implied by EE-frame projection).
+- **Noisy estimate** of fixed-part pose `p_fixed`.
+- Previous action `a_t−1` (to help with partial observability).
+- All position observations are **relative to the fixed part**.
+
+What **perception** sensors are used on the real system? I.e. cameras to estimate the fixed-object pose. At which frequency? How is the cam mounted (doesn't it hinder the robot or isn't it occluded)? How is it and calibrated? Has the noise be estimated? What algorithm is used to estimate the pose from the image? At which frequency is the pose estimated?
+- For most experiments they **do not run a live external vision system**!!
+- Instead, they **calibrate the fixed part pose once** and add **synthetic noise** to study robustness.
+- For the gear-box, [IndustReal](https://arxiv.org/pdf/2305.17110) perception pipeline is used.
+  - But camera type, mounting, calibration procedure, pose-estimation algorithm, update rate, and noise stats are not specified!
+
+Are all the **7 joints used**? Or are **some redundant joints frozen**?
+- The paper does not explicitly state.
+
+Can the real robot provide **force measurements**? In **which space**? Cartesian or joint space? How often are these read?
+- The Panda's **joint-torque sensors** are **projected to EE-frame forces** for the policy.
+- Force is observed in **Cartesian (EE) space**.
+- Frequency: Not explicitly stated, but likely read at the low-level controller rate of 1000 Hz, as it aligns with FCI’s torque control loop.
+
+How are the rewards computed? Is it dense or sparse?
+- Combination: **dense shaping** + sparse bonuses + safety penalty
+- The two discrete bonuses:
+  - (i) when the held part is **centered/placed above** the fixed part
+  - (ii) on task success
+- The safety penality is about **excessive-force**
+
+What algorithm is used to learn the policy? Is a "state" (richer that the obs) used for the critic?
+- **Recurrent PPO** with **asymmetric** actor–critic for partial observability
+- `critic` uses **privileged state** (richer information, not specified but likely includes ground-truth dynamics)
+- `actor` uses observations
+
+How does the **Cartesian impedance controller** work? How is it connected to the policy and to the FCI?
+- The **impedance controller** (**mid-level loop**) compares current EE pose (`pee`), current EE velocity (`vee`) and the EE target (`p_targ`).
+- It computes a **virtual Cartesian wrench**:
+  - `F_targ`=`kp`(`p_targ`−`pee`)−`kd`*`vee`.
+  - Which is `F_targ` = [`Fx`, `Fy`, `Fz`, `0`, `0`, `τz`].
+- > "As in previous work, we use critically damped gains to ensure stable controllers: `kd = 2 * sqrt(kp)`"
+- The **Franka controller** convert `F_targ` to joint torques considering the robot Jacobian `J` and internal dynamics model.
+  - `τ=J_Transpose * F_targ +(gravity/dynamics terms)`
+  - It sends those `τ` torques directly to the motors.
+
+Can this really be called "Impedance"?
+- `Fcmd = Kp(xd−x) + Kd(x˙d−x˙) + Kf(Fd−F)`
+- The **"impedance"** idea is: _the robot behaves like a virtual **spring–damper** around the target pose, trading off tracking error vs. interaction forces._
+- Here there is **no explicit `F_desired − F` term** in `F_targ` -> they don’t command a **target force**.
+- Instead, they create a **virtual spring–damper** to the pose target.
+- It looks like a **PD controller** in **task space**, a special case of impedance control (a “pure position-based impedance” formulation).
+- It creates a **compliant behaviour**: the EE is **pulled toward the target**, but external contact forces deflect it naturally.
+- The RL policy provides the **moving “anchor point”** of that spring.
+- The stiffness `kp` and damping `kd` control how strongly the robot pushes against obstacles.
+
+Is the **impedance controller** used in real setup also used in the simulation loop?
+- Yes, the impedance controller is used in the simulation loop.
+
+What **randomization** is applied? How are the levels of noise decided?
+- Controller randomization: action scale `λ` (used to clipped to ensure that the target is not too far from the EE's current pose) and gains `kp` so that max commandable force spans 6.4–20 N across episodes.
+- Force-threshold `F_th` is **conditioned into the policy** and randomized during training, enabling safe tuning at deployment.
+- Part randomization: masses and friction.
+- Robot dynamics randomization: per-axis dead-zone on applied force to mimic **effects like joint friction**; forces below a sampled threshold are **clamped toward zero**.
+- Observation / initial-state noise (incl. up to 5 mm fixed-part pose error)
+
+Does the control system **fully rely on the RL policy**? Or are there any non-RL components?
+- The high level is the RL policy (outputs **relative Cartesian targets** + an early-termination signal).
+- Execution uses a **classical Cartesian impedance controller** (non-RL)
+- There is also a non-RL **auto-tuning loop that increments `F-th`** between trials for forceful insertions.
+- _No hand-coded search patterns (e.g., spiral) are used._
+ 
+
+</details>
+
+---
+
 **`"Sim-to-Real Reinforcement Learning for Vision-Based Dexterous Manipulation on Humanoids"`**
 
 - **[** `2025` **]**
