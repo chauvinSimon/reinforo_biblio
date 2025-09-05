@@ -398,6 +398,7 @@ Some **good ideas**:
 - the force-threshold `F_th` is **conditioned into the policy**
   - I.e. `F_th` is part of the observation and the policy is trained to consider it.
 - no live vision system (in most experiments)
+- Flow: **Policy → `ΔPose` → Impedance Controller → `F_targ` → Franka (FCI) → `Joint torques`.**
 
 ---
 
