@@ -373,6 +373,7 @@ randomization
 **`"FORGE: Force-Guided Exploration for Robust Contact-Rich Manipulation under Uncertainty"`**
 
 - **[** `2025` **]**
+  **[[:memo:](https://noseworm.github.io/forge/static/forge_paper.pdf)]**
   **[[🎞️](https://noseworm.github.io/forge/)]**
   **[[🎞️](https://slideslive.com/38994174/insights-towards-sim2real-contactrich-manipulation)]**
 - **[** _`sim-to-real`, `impedance`, `force`, `isaac-sim`_ **]**
@@ -432,9 +433,16 @@ At which **frequency** are actions decided (the delta-t between policy inference
 What is the **observation space**? Probably some force and position? Is the force a `xyz` vector?
 - **Noisy EE pose** and velocity `p_ee` and `v_ee`.
 - Estimated **contact force** at the EE `F_ee` (xyz force vector, implied by EE-frame projection).
+  - It allows the agent to react to current forces and determine if they exceed the conditioned force threshold.
 - **Noisy estimate** of fixed-part pose `p_fixed`.
 - Previous action `a_t−1` (to help with partial observability).
 - All position observations are **relative to the fixed part**.
+
+Why a **recurrent system** can help against **partial observability**?
+- A recurrent system (like **recurrent PPO**) maintains a **hidden state** that integrates information from past observations, allowing the policy to infer unobservable aspects of the state (e.g., hidden dynamics or part poses) from the sequence of noisy or incomplete observations over time.
+- The paper mentions using **recurrent PPO** with asymmetric actor-critic to handle partial observability.
+  - But it does not provide specific details such as hyperparameters, architecture, or the **number of states kept in the internal memory** (hidden state).
+- Adding **past observations** to the observation is also a way to handle partial observability.
 
 What **perception** sensors are used on the real system? I.e. cameras to estimate the fixed-object pose. At which frequency? How is the cam mounted (doesn't it hinder the robot or isn't it occluded)? How is it and calibrated? Has the noise be estimated? What algorithm is used to estimate the pose from the image? At which frequency is the pose estimated?
 - For most experiments they **do not run a live external vision system**!!
