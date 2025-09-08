@@ -376,6 +376,7 @@ randomization
   **[[:memo:](https://noseworm.github.io/forge/static/forge_paper.pdf)]**
   **[[🎞️](https://noseworm.github.io/forge/)]**
   **[[🎞️](https://slideslive.com/38994174/insights-towards-sim2real-contactrich-manipulation)]**
+  **[[:octocat:️](https://isaac-sim.github.io/IsaacLab/main/source/overview/environments.html#contact-rich-manipulation)]**
 - **[** _`sim-to-real`, `impedance`, `force`, `isaac-sim`_ **]**
 
 <details>
@@ -400,6 +401,9 @@ Some **good ideas**:
   - I.e. `F_th` is part of the observation and the policy is trained to consider it.
 - no live vision system (in most experiments)
 - Flow: **Policy → `ΔPose` → Impedance Controller → `F_targ` → Franka (FCI) → `Joint torques`.**
+- recurrent PPO for partial observability
+- smooth actions with EMA (exponential moving average) to reduce jerkiness
+- tensors (positions, velocities) are updated with finite differencing (more accurate than sim's raw data).
 
 ---
 
@@ -496,6 +500,15 @@ Can this really be called "Impedance"?
 
 Is the **impedance controller** used in real setup also used in the simulation loop?
 - Yes, the impedance controller is used in the simulation loop.
+
+What is passed as **targets** to the simulated robot? How is the robot configured?
+- `self._robot.set_joint_position_target(self.ctrl_target_joint_pos)`  (the target pose for the non-gripper joints are ignored because `stiffness=0.0` and `damping=0.0`)
+- `self._robot.set_joint_effort_target(self.joint_torque)`  (no torque for gripper)
+- The `ImplicitActuatorCfg` actuators `ArticulationCfg` are configured as follows:
+  - `panda_joint[1-7]`: `stiffness=0.0` and `damping=0.0`. This makes them **"pure torque" drives** - **position/velocity targets are ignored**, and **only the effort target** directly applies torque.
+  - `panda_finger_joint[1-2]`: `stiffness=7500` and `damping=173`.
+    - Setting `joint_torque[:, 7:9] = 0.0` adds no extra effort
+    - So the **gripper relies solely on its PD drive** to reach/maintain the **position**.
 
 What **randomization** is applied? How are the levels of noise decided?
 - Controller randomization: action scale `λ` (used to clipped to ensure that the target is not too far from the EE's current pose) and gains `kp` so that max commandable force spans 6.4–20 N across episodes.
