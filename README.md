@@ -502,8 +502,16 @@ Is the **impedance controller** used in real setup also used in the simulation l
 - Yes, the impedance controller is used in the simulation loop.
 
 What is passed as **targets** to the simulated robot? How is the robot configured?
-- `self._robot.set_joint_position_target(self.ctrl_target_joint_pos)`  (the target pose for the non-gripper joints are ignored because `stiffness=0.0` and `damping=0.0`)
-- `self._robot.set_joint_effort_target(self.joint_torque)`  (no torque for gripper)
+- `self._robot.set_joint_position_target(self.ctrl_target_joint_pos)`
+  - _(the target pose for the non-gripper joints are ignored because `stiffness=0.0` and `damping=0.0`)_
+- `self._robot.set_joint_effort_target(self.joint_torque)`
+  - _(no torque for gripper)_
+- This **seems conflicting**.
+  - **Hybrid control mode** where the system selectively ignores one target based on the joint's drive settings.
+- The formula in `PhysX`
+  - `tau = Stiffness * (q_target - q) - Damping * (q'_target - q') + tau_feed_forward`
+  - `q'_target` is often 0 for pose control
+  - The output `tau` is clamped by a maximum force/torque limit (`effort_limit_sim`)
 - The `ImplicitActuatorCfg` actuators `ArticulationCfg` are configured as follows:
   - `panda_joint[1-7]`: `stiffness=0.0` and `damping=0.0`. This makes them **"pure torque" drives** - **position/velocity targets are ignored**, and **only the effort target** directly applies torque.
   - `panda_finger_joint[1-2]`: `stiffness=7500` and `damping=173`.
