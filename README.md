@@ -1178,6 +1178,85 @@ _what `delta-t`?_
 
 ---
 
+**`"Real-Time Execution of Action Chunking Flow Policies"`**
+
+- **[** `2025` **]**
+  **[[:memo:](https://www.physicalintelligence.company/download/real_time_chunking.pdf)]**
+  **[[🎞️](https://www.physicalintelligence.company/research/real_time_chunking)]**
+
+- **[** _`action chunking`, `VLA`, `asynchronicity`, `inpainting`, `latency`, `diffusion`, `flow matching`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                  ![](media/2025_black_5.png)                                                                  | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| ***Action chunking** and the problem of **continuity** between action chunks. [source](https://www.physicalintelligence.company/research/real_time_chunking)* |
+
+|                                                                                ![](media/2025_black_6.png)                                                                                 | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Problematic **"bifurcation" between chunks**. Mode jumping. And limitation of interpolation methods. [source](https://www.physicalintelligence.company/download/real_time_chunking.pdf)*  |
+
+|                                       ![](media/2025_black_7.png)                                       | 
+|:-------------------------------------------------------------------------------------------------------:| 
+| *Proposed approach. [source](https://www.physicalintelligence.company/download/real_time_chunking.pdf)* |
+
+|                                                                                                   ![](media/2025_black_1.gif)                                                                                                   | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Proposed approach: **Real-time chunking** (RTC) is an inference-time algorithm for **asynchronous** execution of **action chunking** policies. [source](https://www.physicalintelligence.company/research/real_time_chunking)* |
+
+
+Past approach:
+- **Action chunking** = A robot outputs and executes a **sequence of multiple actions** for each inference call.
+- > "Our VLAs all use a chunk size of **50 actions**, corresponding to **1 second of real time**."
+- Actions were executed **_synchronously_**: they would finish executing one chunk, **wait for model inference**, and then begin executing the next one.
+  - These "pauses" aren't in the training data. And make demos slow.
+
+Main trade-off: **reactivity** vs **temporal consistency**.
+- > "Chunked execution ensures **temporal consistency** at the expense of **reactivity**."
+  - A long **execution horizon** reduces a **policy’s responsiveness** to new information.
+  - A short one increases the likelihood of **mode-jumping**, jerky behavior resulting from **discontinuities between chunks**.
+
+Motivations:
+- How to **speed up** execution time?
+  - **Latency problem**: Vision-language-action (VLA) models are big and hard to run on edge hardware. Therefore, **inference is slow**.
+  - > "Kim et al. [30], who optimize the 7B OpenVLA model [29] specifically for inference speed, achieve no better than **321ms of latency** on an NVIDIA A100 GPU."
+- How to maintain **consistency** between action chunks? How to make it **smooth**?
+  - When **switching chunks**, what if the new actions does not “agree” with the old ones?
+  - This could cause **discontinuities** and unsafe accelerations: **out-of-distribution** jerky movements at **chunk boundaries**.
+
+In short: new algorithm: **"real-time chunking" (RTC)**
+- It enables real-time execution **without discontinuities**.
+- It works on any **diffusion- or flow-based VLA** - including `π0.5`.
+- No training-time changes.
+- **Asynchrony**: "let a model **think about its future actions** while **executing a previous one**."
+- > "We expected **RTC** to be faster, since it **eliminates the pauses** between chunks."
+
+1] Example of the process.
+- A chunk was predicted from previous inference.
+  - Let's imagine it originally contained 50 actions, spanning over 1s.
+  - Some of them have already been "applied".
+  - Let's imagine **10 actions are still remaining**.
+- A new observation arrives.
+- The **inference is run** to predict a new chunk.
+  - The inference takes a time equivalent to executing **3 of the old actions**: **the latency**.
+  - The inference does three things:
+    - (1) It is aware that **3 "old" actions would be executed** (frozen).
+    - (2) It **adjusts/updates the remaining 7 "old" actions**.
+    - (3) It **predicts a new chunk** of 50 "new" actions.
+  - > "It generates the next action chunk while **executing the current one**, “freezing” actions guaranteed to execute and **“inpainting” the rest**."
+
+2] Analogy with **image inpainting**.
+- > "Filling in missing or damaged **parts of an image** to create a **visually consistent** and seamless result by analyzing and reconstructing content from the **surrounding pixels**."
+- Here not pixel, but previously predicted actions.
+
+3] Limitations.
+- RTC adds some **computational overhead** compared to methods that **sample directly** from the base policy.
+
+</details>
+
+---
+
 **`"π0.5: a Vision-Language-Action Model with Open-World Generalization"`**
 
 - **[** `2025` **]**
