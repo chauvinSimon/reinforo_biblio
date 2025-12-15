@@ -1178,6 +1178,322 @@ _what `delta-t`?_
 
 ---
 
+**`"π*0.6: a VLA that Learns from Experience"`**
+
+- **[** `2025` **]**
+  **[[:memo:](https://www.physicalintelligence.company/download/pistar06.pdf)]**
+  **[[🎞️](https://www.pi.website/blog/pistar06)]**
+
+- **[** _`offline RL`, `advantage conditioning`, `policy extraction`, `VLA`, `distributional critics`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                                                                                                                                 ![](media/2025_black_2.png)                                                                                                                                                                                  | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *One previous work was **`π0.5`**: The VL backbone is trained on various tasks (language subtask, discretized action using the FAST tokenizer, open vocabulary caption, bounding box). At inference time, the model **first infers a high-level subtask** (text), and then predicts the actions based on this subtask. [source](https://www.physicalintelligence.company/download/pi05.pdf)* |
+
+|                                                                                                                                                                                                             ![](media/2025_ali_1.png)                                                                                                                                                                                                             | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *`Recap` introduces a **Value funtion** used to compute an **Advantage**. This advantage (a scalar) is then used to condition the imitation by **labelling the action**: The model is trained to **imitate both good and bad actions**, but is queried only in the 'good-action mode' at inference time. The arms are controlled at **50 Hz** with **joint positions**. [source](https://www.physicalintelligence.company/download/pistar06.pdf)* |
+
+|                                                                                                            ![](media/2025_ali_2.png)                                                                                                            | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *`Recap` include three sources of supervision (demonstrations, corrections and autonomous rollouts) unified into **one training pipeline**, without policy gradients. [source](https://www.physicalintelligence.company/download/pistar06.pdf)* |
+
+|                                                                          ![](media/2025_ali_4.png)                                                                          | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The learnt **value function** predicts the (negative) number of steps to completion of the task. [source](https://www.physicalintelligence.company/download/pistar06.pdf)* |
+
+|                                                           ![](media/2025_ali_3.png)                                                           | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *A additional input for the VLA: **binarized advantage indicator**. [source](https://www.physicalintelligence.company/download/pistar06.pdf)* |
+
+:warning: **To clarify: RL signals are used (`reward`, `return`, `value`, `advantage`) but they do not do RL optimization!**
+
+In short:
+- `Recap` improves a large VLA policy **without policy gradients** by combining demonstrations, human corrections, and autonomous rollouts through **advantage-conditioned** imitation _(yes, still imitation!)_.
+- A **distributional value function** is trained from Monte-Carlo returns of the dataset's behaviour policy to **estimate task progress** robustly across tasks.
+- Advantages are computed in hindsight (`return − expected value`), then binarized to **label actions** as good or bad.
+- The policy is trained with **pure supervised learning**, conditioned on this advantage indicator, effectively imitating only actions that led to better outcomes.
+  - The model learns:
+    - _What actions look like when they are good_ (indicator=`True`)
+    - _What actions look like when they are bad_ (indicator=`False`)
+  - At **inference time**, the **indicator is set to `True`**. Because we want good actions!
+- At inference time, no value function or advantage is used - only the **improved VLA policy** executes actions.
+
+_-_-_-_
+
+`Recap = RL with Experience & Corrections via Advantage-conditioned Policies`:
+- include **3 sources of supervision** unified into **one training pipeline**:
+  - Demonstration
+  - Corrections (from a **coach**)
+  - Autonomous rollouts (trying alone)
+- `Recap`'s contribution is how **they unify them** without policy gradients.
+
+Q0] Why `*` in `π*0.6`?
+- [`π0.5`](https://www.physicalintelligence.company/download/pi05.pdf) -> [`π0.6`](https://website.pi-asset.com/pi06star/PI06_model_card.pdf)
+  - The pre-training dataset is augmented with additional data from **multiple robot platforms**.
+  - The base VLM is Gemma 3 **4B model**.
+  - The size of the action expert is increased to **860M parameters**.
+- [`π0.6`](https://website.pi-asset.com/pi06star/PI06_model_card.pdf) -> `Recap` (value learning + advantage conditioning) -> `π*0.6`
+  - `*` means "**policy extracted** using value-based advantage conditioning".
+    - `*` does not imply "optimality" in the RL sense.
+  - `π*0.6` is an adaptation of the `π0.6` for RL (thanks to the additional binarized advantage indicator):
+
+_-_-_-_
+
+Q1] We need a "recap" _(yes, same word as the approach)_: **What was [`π0.6`](https://website.pi-asset.com/pi06star/PI06_model_card.pdf) about?**
+
+Architecture: Three modules.
+- **VL backbone** used for **two heads**.
+  - Initialized from the **Gemma3 4B model**.
+- **LM head**: the first head.
+  - Probably a **linear projection** from `hidden_dim` to `vocab_size`.
+- **"Action expert"**: The second head.
+  - A full **transformer stack** (~ backbone depth), with:
+    - Self-attention
+    - Cross-attention to backbone embeddings
+    - Feedforward blocks
+    - Timestep conditioning (for diffusion)
+  - It has the same number of layers as the backbone and consists of about **0.86B parameters**. 
+
+```text
+Backbone embeddings = shared semantic representation
+LM head (discrete)  = discrete supervision
+Action expert       = continuous supervision
+```
+
+```text
+h = backbone(image_tokens, text_tokens, state_tokens)
+
+# discrete head
+logits_tokens = lm_head(h)         # used for text and FAST tokens
+
+# continuous head
+a_chunk = action_expert(h, noise)  # flow matching, conditioned on h
+```
+
+Q2] Why does the Action Expert have the **same number of layers** as the backbone?
+- Reason 1: Capacity matching (for representational alignment).
+- Reason 2: **Layerwise conditioning**.
+  - **Cross-attention** at all abstraction levels.
+- Reason 3: Diffusion models benefits from depth.
+
+Q3] What are the **3 tasks for training**:
+- **Discrete robot behaviour learning (via `FAST` tokens)**
+  - A raw action chunk is spanning multiple time steps (typically 1s):
+    - Shape `[chunk_length, num_joints]` like `[32, 10]` -> `320` continuous numbers.
+  - The [**`FAST` tokenizer**](https://www.pi.website/research/fast):
+    - Applies DCT per dimension, keeps low‑frequency components, sparsifies, then compresses with BPE.
+    - Produces a sequence of ~30–60 discrete tokens per chunk, roughly **10× compression**.
+    - This has the **same multi-step horizon** as the diffusion/flow-matching's,
+    - while using **simple next-token loss**.
+  - These `FAST` tokens represent **patterns of motion**, not actual joint positions!
+    - They approximate **low-frequency components** of trajectories.
+    - They are **lossy abstractions**.
+    - Contrary to the **exact physical control** in continuous space, predicted by the Action Expert.
+  - `Backbone -> LM head -> tokens`
+  - The loss is a standard cross-entropy loss on next `FAST` token prediction.
+    - It's precisely the same autoregressive recipe as GPT, just with a **multimodal prefix** instead of pure text.
+- **World + instruction understanding (web data)**
+  - A standard vision-language pretraining.
+  - Also high-level planning: **predicting subtask tokens** in a dedicated head.
+  - `Backbone -> LM head -> tokens`
+  - _The vocabulary seems to be the one of a VLM extended with the `FAST` tokens (discretized actions)_. 
+  - _The loss depends on the dataset:_
+    - Next-token prediction (text)
+    - Contrastive (CLIP-like)
+    - Image caption prediction
+- **Actual continuous control (via action expert)**
+  - `Backbone -> Action-Expert head -> output`
+  - `output` represents a **continuous action chunks**.
+  - _`output` seems to contain:_
+    - joint deltas
+    - end-effector poses
+    - gripper commands
+  - > "The arms are controlled at **50 Hz** with **joint positions**."
+  - What does the `action expert head` use from the backbone?
+    - The VLM backbone runs once and outputs a **sequence H of hidden states**.
+    - Two attentions mechanisms happen:
+      - **Cross-attention** between the action expert and the VLM backbone. Similar to an **encoder-decoder transformer**.
+      - **Self-attention** within the action expert.
+
+Q4] What is the input of the VLA? A concatenation of:
+- Up to 4 **images** converted to tokens by the vision encoded.
+- The tokenized **language prompt**.
+- The tokenized **proprioceptive states** (e.g. current robot pose).
+
+Q5] What are the **attention** patterns?
+- Image tokens: BIDIRECTIONAL (full scene context)
+- Text tokens: CAUSAL (left-to-right, sees all images) 
+- Proprio tokens: CAUSAL over time (sees vision + text) 
+- FAST action tokens: CAUSAL (autoregressive within FAST sequence)
+- Action expert: BIDIRECTIONAL SELF (within expert) + CROSS (to backbone) 
+
+Q6] How not to degrade the VLM backbone (pre-trained web-scale knowledge) while training the **"grafted" action expert**?
+- > "In the evolution of brains, the **motor cortex** came first, but in modern AI things are backwards: we start with **language**, then add **vision**, and then hook up **motor control**."
+- > "That means that we need to figure out how to "wire" our newly added virtual motor cortex into the VLA without destroying its pretrained reasoning capabilities and web-scale knowledge."
+- The gradients from the action expert to the VLM backbone unfavorably influence the representations in the backbone.
+  - The model's ability to follow language instructions is reduced.
+- Solution: [**insulating** the VLM backbone during VLA training](https://arxiv.org/abs/2505.23705).
+  - Gradient blocking. But still fine-tuning the VLM backbone.
+
+Q7] How fat at Inference?
+- Only about the third task (continuous control via action expert).
+- > "With **5 denoising steps** and **3 camera inputs**, `π0.6` takes **63ms** to produce an action chunk on a single H100 GPU."
+
+Q8] At inference, the model **first predicts the subtask** and only then predicts the actions accordingly. **When can the subtask be changed?**
+- The predicted subtask text seems to be fed back into the input.
+- That would mean **waiting for a (possibly long) text completion** before running the action prediction.
+- _There should be a better way!?_
+- > "The **sub-task prediction** runs at a **lower frequency** than action generation."
+  - Maybe every X seconds the sub-task prediction is updated?
+
+Q9] What does the **output** of the action expert look like?
+- Let's consider a robot with **10 joints and 1 gripper**.
+- Let's consider the chunk to predict **spans over 50 timesteps**.
+- The action expert predicts **flow-matching parameters** (mean + log-std) for the full chunk.
+  - In total: `2 × 50 × 11 = 1100` continuous values.
+  - They are **joint angles** and **gripper commands**.
+- Each forward pass processes the entire `50×11` chunk simultaneously.
+  - The model predicts the denoising direction for all **50 timesteps at once**, conditioned on the current noisy chunk + VLM context.
+  - Diffusion/flow matching **parallelizes time beautifully**: All 50 timesteps are generated in parallel within each denoising step!
+  - **5 denoising steps = 5 forward passes**.
+
+_-_-_-_
+
+_Back to `Recap` and `π*0.6`_
+
+Q10] Additional **inputs**?
+- A boolean value: the **binarized advantage indicator**.
+  - First, `advantage` is computed numerically. 
+  - Then binarized into something like:
+    - "good trajectory": `indicator = True`, e.g. used for all corrections.
+    - "bad trajectory": `indicator = False`
+  - The model never sees the scalar advantage.
+- Additional language inputs (not just the **overall task prompt**) providing **metadata** that further modulates **_how_** the task is performed.
+
+Q12] Isn't **imitation learning** all you need?
+- Problem 1: It can only be **as performant as the demonstration data**. Never better!
+- Problem 2: Compounding errors:
+  - > "Sequential prediction problems such as imitation learning, where **future observations** depend on **previous predictions** (actions), violate the common i.i.d. assumptions made in statistical learning." [source](https://arxiv.org/abs/1011.0686).
+- Idea:
+  - Compounding mistakes can be addressed by allowing the policy (i.e., the VLA) to **practice repeatedly**.
+  - The key to enable learning from experience is to **extract good training signals** from **bad experiential data**.
+- New questions: how?
+  - **Coaching**: running the best current policy and **"taking over" with manual teleoperation** when the robot makes a mistake.
+  - **~RL**: the robot **judges for itself** which of its behaviours were better or worse based on the **overall outcome of an episode**.
+
+Q13] **Coaching**: how identify the right time to intervene and then actually provide a high-quality correction?
+- The `binarized advantage indicator` is set to `True` for actions provided as human corrections during autonomous rollouts.
+  - Corrections are assumed better than the autonomous action.
+- > "the corrections serve more to **fix large mistakes** and overcome challenges with **exploration**, and do not by themselves provide for optimal supervision."
+  - Contrary to DAgger theory.
+
+Q14] ~RL: how to correctly **assign credit**?
+- > "If the robot picks up the portafilter for an espresso machine in the wrong way, it might struggle to insert it. The mistake is not in the insertion, but in the original grasp."
+- `Recap` addresses this challenge by training a **value function**.
+  - Actions that result in an increase in the value function should be **encouraged** ("reinforced").
+  - Actions that lead to a decrease in the value should be **discouraged**.
+- This value function **predicts the (negative) number of steps to completion** of the task (normalized by maximum task length).
+
+Q15] How is the value function trained?
+- A dataset D of trajectories (initially human demonstrations) is collected.
+  - **Behaviour policy** = whatever generated the dataset.
+  - Initially humans, later a mixture (humans + self collection)
+- Next step: compute the **value function of this behaviour policy** that generated the data.
+- Instead of a standard scalar value function `V(ot,ℓ) ∈ R`,
+  - they learn a **distribution over returns**: `pϕ( V ∣ot,ℓ)` like in **distributional RL**.
+    - The network **predicts probability mass**.
+    - The values of the bins are not learned, but fixed before training.
+  - Inputs: observation + language command + task metadata.
+    - **Same as in the VLA**. 
+  - Output: **categorical distribution** over discretized return bins.
+  - Target: **Monte Carlo return** for the trajectories present in D.
+- Training is framed as a **classification problem**:
+  - Returns are **discretized into B bins**.
+  - Cross-entropy loss is used.
+- A **continuous value estimate** is recovered, enabling **advantage** computation.
+  - By computing the **expectation** of the value distribution.
+
+Q16] Why not directly learning the standard **scalar value function** `V(ot,ℓ) ∈ R`?
+- **Distributional learning**:
+  - Models full return distributions
+  - Handles multi-modality naturally
+  - Is far **more stable** across tasks: Distributional critics are much **more robust to reward scaling mismatches** (important in multi-task robotics)
+- **Classification** is easier than regression
+  - And enables using the **same architecture** as the VLA policy
+
+Q17] What neural network for the **value function**?
+- The **same architecture** as the VLA policy, but with a smaller VLM backbone: **Gemma 0.27b**.
+- **Same input** as the VLA policy.
+
+Q18] How to compute the **advantage** from this learnt **value function**?
+- `A(t) = (empirical return) − (expected return)`
+  - `empirical return`: The Monte Carlo return observed for the collected trajectories.
+  - `expected return`: The learnt value function.
+- Is it used during inference?
+  - No, because we do not know the `empirical return`!
+  - Advantage is a **training-only signal**
+  - Advantages can only be computed for **trajectories** with **observed returns**.
+  - Instead, the advantage is used only during training **to extract a better policy** which is used for inference.
+  - The deployed policy is **unconditional** (no advantage input).
+
+Q19] How is the **reward** function? To compute the "Value function".
+- **Sparse** reward:
+  - At termination:
+    - `0` if success
+    - `-Cfail` if failure
+  - During the episode:
+    - `-1`
+- "With this **reward function**, we train the value function to predict the (negative of the) number of **remaining steps until success for successful episodes**, and a large negative value for failed episodes."
+  - **Normalization** of the **value function**: in [-1, 0], based on the **maximum episode length** of the task.
+
+Q20] How is the **policy gradient** computed/estimated?
+- It is not!
+- There is **no policy gradient style objectives**, which is complicated with large VLA models.
+- But the effect is **policy improvement**.
+
+Here: **iterated offline RL** framework for **VLAs** with multiple **advantages**.
+- **Advantage conditioning** strategy for **policy extraction**: it can use all prior (off-policy or offline) data.
+- A value function is trained that evaluates progress toward successful task completion
+- Then this value function is used to **estimate the advantage** of each action in the dataset.
+- > "By conditioning the policy on an improvement indicator based on this advantage, we can obtain an improved policy."
+
+Q21] How can the **policy be extracted** from the **learnt value function** which was trained with **suboptimal data**?
+- The value function is not used **to select** actions directly.
+- It is used **to LABEL which actions** were good or bad in hindsight.
+- This is implicit Q-filtering, **without a Q-function**.
+
+Q22] What **RL algorithm is used**? Off-policy / On-policy?
+- _As already warned:_ RL signals are used (`reward`, `return`, `value`, `advantage`) but **they do not do RL optimization**.
+- `PPO` or `SAC`?
+  - No because:
+  - > "They are difficult to apply to **flow matching models**, which do not readily provide a **tractable log-likelihood**."
+- Instead, a variant of **advantage conditioning** is used:
+  - The policy is trained on all of the data with **supervised learning** (like imitation learning).
+  - But with an **additional input** indicating **how optimal the action is** based on the advantage.
+
+Q23] So no **imitation** anymore?
+- The objective is NOT the maximisation of cumulated rewards as in RL.
+- It is still imitation learning - but **advantage-weighted imitation**.
+- Instead, "Imitate actions that led to better outcomes".
+  - **Same supervised loss**:
+    - Cross-entropy for `FAST` tokens
+    - Flow-matching loss for continuous actions
+  - Smarter data selection.
+
+Q24] Why not just **drop bad actions**?
+- Bad actions contain important **recovery and boundary information**.
+- This is similar to **contrastive learning**:
+  - You learn positives and negatives.
+  - But only **deploy positives**.
+
+</details>
+
+---
+
 **`"Real-Time Execution of Action Chunking Flow Policies"`**
 
 - **[** `2025` **]**
@@ -1875,9 +2191,9 @@ Limitations:
 <details>
   <summary>Click to expand</summary>
 
-|                                                                                            ![](media/2024_black_3.png)                                                                                             | 
-|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
-| *Once the backbone is trained, it can be used either be **used directly** or **fine-tuned** using high-quality data. As for **base / instruct** LLMs. [source](https://www.physicalintelligence.company/blog/pi0)* |
+|                                                                                        ![](media/2024_black_3.png)                                                                                         | 
+|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Once the backbone is trained, it can be either **used directly** or **fine-tuned** using high-quality data. As for **base / instruct** LLMs. [source](https://www.physicalintelligence.company/blog/pi0)* |
 
 |                                                                                        ![](media/2024_black_1.png)                                                                                         | 
 |:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
@@ -1919,6 +2235,9 @@ Some terms:
 - **Action expert**
   - A separate set of weights is used for the robotics-specific (action and state) tokens.
   - > "This design is analogous to a **[mixture of experts](https://huggingface.co/blog/moe)** with **two** mixture elements, where the first element is used for **image and text inputs**, and the **second is used for robotics-specific inputs and outputs**. We refer to the **second set of weights** as the **_action expert_**."
+  - Warning: It's a _conceptual_ MoE, not an _architectural_ MoE (with router at each block).
+    - The **transformer backbone** is expert #1 for image/text tokens.
+    - The "action expert" (expert #2) is just a specialized **output head** - typically a diffusion or flow-matching model - **conditioned** on the VLM's final hidden states, trained to predict continuous robot actions.
 
 `π_0` model
 - input: 
@@ -3115,6 +3434,11 @@ todo
 
 ## papers
 
+- [Presentation by Sergey Levine on `Dexterous robotic foundation models`](https://www.youtube.com/watch?v=yp5fI6gufBs) mentioning three works:
+  - [`SERL: A Software Suite for Sample-Efficient Robotic Reinforcement Learning`](https://serl-robot.github.io/)
+  - [`RLDG: Robotic Generalist Policy Distillation via Reinforcement Learning`](https://generalist-distillation.github.io/)
+  - [`Steering Your Diffusion Policy with Latent Space Reinforcement Learning`](https://diffusion-steering.github.io/)
+
 - [`Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning`](https://leggedrobotics.github.io/legged_gym/)
   - training the quadruped `ANYmal` robot in `Isaac Gym`
   - [presentation](https://www.youtube.com/watch?v=Afi17BnSuBM)
@@ -3129,6 +3453,7 @@ todo
 ## labs
 
 - [`Intelligent Autonomous Systems - TU Darmstadt`](https://www.ias.informatik.tu-darmstadt.de/Videos/Videos)
+  - [Jan Peters about "Inductive Biases for Robot Learning"](https://youtu.be/Z8PDZg7DfEw)
 
 - [OpenAI](https://www.youtube.com/playlist?list=PLOXw6I10VTv_CcTXlvHmGbWH-_wUOoRoO)
 
