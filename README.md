@@ -1243,7 +1243,9 @@ Q0] Why `*` in `π*0.6`?
 
 _-_-_-_
 
-Q1] We need a "recap" _(yes, same word as the approach)_: **What was [`π0.6`](https://website.pi-asset.com/pi06star/PI06_model_card.pdf) about?**
+We need a "recap"! _(yes, same word as the approach)_
+
+Q1] **What was [`π0.6`](https://website.pi-asset.com/pi06star/PI06_model_card.pdf) about?**
 
 Architecture: Three modules.
 - **VL backbone** used for **two heads**.
