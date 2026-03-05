@@ -1176,6 +1176,399 @@ _what `delta-t`?_
 
 # :point_up: not (classical) RL
 
+**`"Alpamayo-R1: Bridging Reasoning and Action Prediction for Generalizable Autonomous Driving in the Long Tail"`**
+
+- **[** `2026` **]**
+  **[[:memo:](https://arxiv.org/pdf/2511.00088)]**
+  **[[🎞️](https://youtu.be/KGCTwoAlhsM)]**
+  **[[:octocat:](https://github.com/NVlabs/alpamayo)]**
+
+- **[** _`nvidia`, `autonomous driving`, `end-to-end`, `VLA`, `Chain of Causation`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                                                                ![](media/2026_nvidia_1.png)                                                                                                                 | 
+|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *`Alpamayo 1` produces **natural language reasoning traces** + **meta actions** + **discrete trajectory** tokens. These tokens are then used to produce a **continuous trajectory** (`action expert` not depicted). [source](https://youtu.be/KGCTwoAlhsM)* |
+
+|                                       ![](media/2026_nvidia_2.png)                                        | 
+|:---------------------------------------------------------------------------------------------------------:| 
+| *Multi-stage training. [source: GTC 2025](https://www.nvidia.com/en-us/on-demand/session/gtc25-dd40000/)* |
+
+|                                                      ![](media/2026_nvidia_4.png)                                                      | 
+|:--------------------------------------------------------------------------------------------------------------------------------------:| 
+| *Multi-stage training. Introduction step-by-step of driving actions, reasoning and finally RL. [source](https://youtu.be/KGCTwoAlhsM)* |
+
+|                                                                                                                                                                       ![](media/2026_nvidia_3.png)                                                                                                                                                                        | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *One idea is to use a **language-conditioned-reasoning E2E model** (`Alpamayo`) in the `MAIN ECU` as a **trajectories proposer**. And keep the already existing **classical AD stack** in a `SATELITTE ECU` which will become the **guardrail / redundant controller** of the vehicle. [source: GTC 2025](https://www.nvidia.com/en-us/on-demand/session/gtc25-dd40000/)* |
+
+|                                                    ![](media/2025_yang_1.png)                                                     | 
+|:---------------------------------------------------------------------------------------------------------------------------------:| 
+| *Flex is used to encode the 16 camera frames (4 cameras and 4 timesteps) into tokens. [source](https://arxiv.org/pdf/2512.10947)* |
+
+|             ![](media/2025_yang_2.png)             | 
+|:--------------------------------------------------:| 
+| *Flex. [source](https://arxiv.org/pdf/2512.10947)* |
+
+**Q] What is the context?**
+
+At **CES 2026**, Nvidia releases three things:
+- A **model**: `Alpamayo 1 10B` (Non-commercial license) and [inference code](https://github.com/NVlabs/alpamayo) (Apache License 2.0).
+- A **simulation** framework: [`AlpaSim`](https://github.com/NVlabs/alpasim).
+  - Enables closed-loop evaluation.
+- **Datasets**: [1700 hours of driving](https://huggingface.co/datasets/nvidia/PhysicalAI-Autonomous-Vehicles).
+  - Enables training and open-loop evaluation.
+
+
+**Q] Why "R" in "R1"?**
+
+- For **reasoning**.
+- The paper explicitly positions itself alongside `DeepSeek-R1` and `OpenAI o1` as a model with **inference-time reasoning**.
+- The "1" is simply the version number.
+
+**Q] What is the motivation?**
+
+- Current **E2E** (vision-to-action) approaches are fragile and lack interpretability.
+  - > "These approaches largely **operate reactively** without explicit reasoning, struggling to **generalize** beyond training distributions in ambiguous or long-horizon scenarios requiring counterfactual reasoning."
+- Treating AD as a NLP/**text generation** task overlooks the rich structural knowledge inherent to driving.
+  - > "Autoregressively decoding waypoints as **text tokens** is inefficient and lacks the **geometric and kinematic constraints** essential for safe vehicle control."
+  - > "Driving decisions must be grounded in causally structured reasoning rather than **free-form narratives**."
+- -> Idea: add **inference-time language reasoning** to the E2E approach (image -> trajectory prediction).
+  - 1] First produce a **language reasoning**.
+    - > "Text-based reasoning further enables models to **explore alternative outcomes in language space**"
+  - 2] Then produce **trajectories that _"align"_ with the language reasoning outputs**.
+    - I.e. language outputs are **not just for interpretability**!
+    - But should **condition** the trajectories.
+    - > "Reasoning is not only an **interpretability-enhancing addition**, but rather a **functional component**."
+
+**Q] Main contributions?**
+
+- **"Chain of Causation"** (`CoC`) dataset.
+  - A **structured labelling framework** and hybrid auto-labelling / human-in-the-loop pipeline, producing decision-grounded, causally linked reasoning traces tied to actual driving behaviour.
+- **VLA** architecture.
+  - Cosmos-Reason backbone plus a **diffusion-based (flow-matching) trajectory decoder** that generates kinematically feasible trajectories conditioned on the reasoning output.
+- **Multi-stage** training.
+  - Supervised fine-tuning (SFT) to **elicit reasoning**
+  - Then RL post-training to enforce **reasoning-action consistency** and optimise trajectory quality.
+
+**Q] How to "condition" the low-level trajectory generation on the reasoning traces? How to "align"? Are they jointly optimized?**
+
+The whole **output sequence** is formulated as:
+- `[image tokens, egomotion tokens, Reasoning tokens, Meta action tokens, Trajectory tokens]`
+- Each component is conditioned on all previous ones.
+
+Concretely:
+- The VLM backbone **autoregressively** generates
+  - Teasoning tokens first,
+  - Then discrete trajectory tokens - so the **trajectory generation _attends_ to the reasoning**.
+- After that, the **action-expert** (a flow-matching decoder) takes both the **reasoning tokens and the discrete trajectory tokens** as input and produces a **continuous, kinematically feasible trajectory**.
+
+They are **jointly optimised** end-to-end.
+- SFT teaches the model to produce coherent **CoC reasoning first**,
+- Then RL fine-tunes to enforce consistency between the reasoning and the resulting actions.
+
+**Q] Only for high-level decision-making?**
+
+No. The reasoning informs both:
+- **High-level** decisions:
+  - Meta-actions such as _"yield"_ and _"lane-change abort"_.
+- **Low-level** trajectory:
+  - The flow-matching decoder is explicitly conditioned on the reasoning tokens to produce the final continuous waypoints.
+
+**Q] Why not simply using "Chains of Thought" (CoT)? What is different with Chain of Causation (CoC)?**
+
+True:
+- CoT mimic human problem-solving strategies.
+- CoT has been successful in "reasoning LLMs":
+  - **Intermediate reasoning traces** are generated, before the final answer.
+  - The reasoning trace, together with the initial prompt, is seen when generated the final answer. It is a sort of simple conditioning.
+
+In short:
+- `CoC = CoT + explicit causal grounding + consistency with the executed trajectory.`
+
+`CoT` has two weaknesses for driving:
+- Traces can be
+  - **vague** (e.g. "be cautious"),
+  - **superficial** (e.g. citing "sunny weather" as a cause),
+  - or **causally confused** (referencing future events not yet observable at decision time).
+- There is no guaranteed alignment between what the reasoning says and what the trajectory actually does.
+
+`CoC` adds **three constraints** (used to label the **CoC dataset**) to fix this:
+- **Decision**-grounded.
+  - Each trace must start from a **closed-set driving decision** (longitudinal and lateral, chosen from a **fixed taxonomy** such as _"lead-obstacle following"_ or _"lateral manoeuvre abort"_).
+  - This anchors the reasoning to a concrete, verifiable action.
+- **Causal factors** only.
+  - Only observable evidence from the history window is allowed as **causal factors** - no future frames, no hypotheticals.
+- **Structured** cause-effect chain.
+  - Causes are labelled explicitly (e.g. _"vehicle ahead is stationary"_), then composed into a natural-language reasoning trace that leads directly to the driving decision.
+
+**Q] What are major challenges?**
+
+- Encoder: Handling **multi-camera**, **multi-timestep** images efficiently (**"token explosion" problem**).
+- Decoder: Producing a continuous, kinematically feasible trajectory **in real time**.
+- Alignment. Via RL, using rewards for:
+  - Reasoning quality.
+  - **Reasoning-action consistency**.
+  - Low-level trajectory quality.
+
+**Q] Difference between "Meta Actions" and "Reasoning"? Difference between "Meta Actions" and "Discrete Trajectory"?**
+
+- **Reasoning** is a free-form (but causally structured) **natural-language text** explaining why a decision is made.
+  - It is verbose and human-readable.
+- **Meta actions** are compact, **discrete tokens** from a **fixed taxonomy** (e.g. "longitudinal: lead-obstacle-following", "lateral: lane-change-left"). They encode what the vehicle decides to do at a **high level**.
+  - They are a coarse summary of the decision, not a full explanation.
+- **Discrete trajectory** is the sequence of **quantised control tokens** (acceleration and curvature bins) that encode how to execute the decision at the control level, over 64 timesteps.
+  - It is the **low-level plan**, still as tokens inside the VLM.
+
+So the chain is:
+- `Reasoning` (_why_, in **language**)
+- → `Meta actions` (_what_, **discrete labels**)
+- → `Discrete trajectory` (_how_, **quantised control**)
+- → `Continuous trajectory` (**final waypoints**, via flow matching).
+
+**Q] What is `Cosmos`? What is `Cosmos-Reason`?**
+
+- `Cosmos` is Nvidia's family of **foundation VLMs** pre-trained on internet-scale data for Physical AI applications.
+  - The backbone used here is 8.2B parameters.
+- `Cosmos-Reason` is a variant of `Cosmos` post-trained specifically for physical common sense and embodied reasoning.
+  - It is trained on 3.7M VQA samples plus 24.7K **driving-specific** video VQA samples.
+  - **Reasoning traces** are distilled from `DeepSeek-R1`.
+  - `Alpamayo R1` ("10B") uses it as a **8.2B backbone** and adds a **2.3B action expert**.
+
+**Q] How was the dataset collected? The Chain of Causation (CoC) dataset.**
+
+A 5-step pipeline:
+
+- 1] Clip selection: only clips with an **explicit driving decision** are kept.
+- 2] Keyframe labelling: The **decision-making moment** is identified.
+- 3] (`causes`) Label critical components: Annotators identify and describe the relevant agents and objects in the history window only (type, relative position, behaviour).
+- 4] (`effect`) Label the driving decision. Using both history and future, annotators assign one **longitudinal and one lateral label** from the **closed-set taxonomy**.
+- 5] **Compose the CoC trace**.
+  - `causes` (step 3) and `effect` (step 4) are composed into a natural-language reasoning trace.
+
+The pipeline is **hybrid**:
+- some clips are **human-labelled**.
+- others are **auto-labelled** using a teacher VLM (`Qwen3-VL`) prompted with driving-specific priors.
+
+**Q] Details about the trajectory prediction: What horizon? How many waypoints?**
+- Horizon: 6.4 seconds.
+- Waypoints: 64, sampled at 10 Hz.
+- Representation: not raw (x, y) positions. Instead, each waypoint is represented as **acceleration and curvature** (`a`, `κ`) under **unicycle dynamics**.
+- The waypoint sequence `(x, y, yaw)` is then recovered via **forward integration** (**Euler discretisation**).
+
+**Q] What architecture? What backbone? Decoder?**
+
+- Backbone (`Cosmos-Reason`): 8.2B parameters.
+  - Standard transformer **VLM** architecture.
+- Action expert: 2.3B parameters.
+  - Same transformer structure as the VLM (same attention heads and dimensions) but with a smaller hidden embedding and MLP for efficiency.
+  - It acts as a **flow-matching decoder _conditioned_ on the reasoning tokens**.
+  - _Think of the action expert as a **"decoder head"**_.
+- Total: ~10.5B parameters (hence the "10B" label).
+
+**Q] Why using a diffusion-based decoder to produce the trajectories?**
+
+- **Multi-modality**.
+  - Driving has inherently **multiple plausible futures**.
+  - A diffusion / flow-matching model can **represent this distribution**, whereas a single-step **regression cannot**.
+- **Speed**.
+  - Flow matching is **faster to sample from** than full diffusion (**fewer denoising steps**).
+  - Autoregressively decoding waypoints as text tokens would be much slower and is not kinematically constrained.
+- **Conditioning**.
+  - The flow-matching framework can **naturally condition** the trajectory on the reasoning tokens, enforcing **alignment between language and action**.
+
+**Q] What input? What output?**
+
+Inputs (tokenized into a **unified sequence of multimodal tokens** following a predefined order):
+- Sequence of **RBG images**
+  - 4 cameras.
+  - 4 frames per camera.
+  - History window at 10Hz = 4*0.1 = 0.4s.
+  - Downsampled to 320 × 576 px before tokenisation.
+- Text (optional):
+  - Navigation command.
+    - E.g. _"Turn left on coming crossing.", "In 400 feet, turn right."_
+  - User command.
+    - E.g. _"Can you slow down?"_
+- Egomotion history:
+  - 16 waypoints at 10Hz.
+
+Outputs:
+- Text (decoded from tokens).
+  - The so-called "Chain-of-Causation reasoning trace".
+- Meta Action (decoded from special tokens).
+  - **High-level** longitudinal and lateral **decision labels**.
+- Trajectory:
+  - 64 waypoints at 10Hz -> 6.4s
+
+**Q] How are images tokenized?**
+
+Requirements:
+- We do not want **too many tokens**.
+- We do not want to **loose important information**.
+
+The default approach is **single-image `ViT`-style tokenisation**:
+- The image is divided into **14 × 14 px patches**, then 2× bilinearly downsampled.
+- At W = 448, H = 280 this yields **160 tokens per image**.
+- With 4 cameras × 4 frames = 16 images:
+  - That is **2560 tokens just for vision.**
+  - Which **motivates compression**!!
+
+Two more efficient alternatives are also supported:
+- **Multi-camera** tokeniser (**triplane-based**):
+  - **Projects** all cameras into three 2D planes (xy, xz, yz) in 3D space.
+  - Token count is fixed regardless of camera count or resolution.
+  - For a 7-camera setup, this is **~4× fewer tokens** than single-image tokenisation.
+- Multi-camera **video** tokeniser (**[Flex](https://arxiv.org/pdf/2512.10947)**):
+  - Compresses across cameras and time via **self-attention** with a **fixed query set**.
+  - Up to **20× compression** vs. single-image, while maintaining or improving driving metrics.
+
+**Q] How are "Meta Action" produced?**
+
+- Meta actions are predicted as **special tokens** in the VLM's vocabulary, **decoded autoregressively** alongside the reasoning trace.
+- They are drawn from a **closed-set taxonomy** of_
+  - **Longitudinal** decisions (e.g. _"constant speed"_, _"yield"_, _"lead-obstacle following"_)
+  - **Lateral** decisions (e.g. _"go straight"_, _"lane change left"_, _"lateral manoeuvre abort"_).
+- **At most one** longitudinal and one lateral label is predicted per inference step.
+
+**Q] How many tokens for the predicted discrete trajectory?**
+
+- Each of the **64 timesteps** has **two control values** (acceleration `a` and curvature `κ`), each **uniformly quantised into bins** and represented as a special token.
+- So the discrete trajectory is **128 special tokens** in the VLM sequence.
+
+**Q] How is the predicted trajectory produced? How to ensure it is feasible?**
+
+**Feasibility** is enforced by design through **unicycle dynamics**:
+
+- > "Instead of directly learning the trajectory `𝜏` in the raw position waypoint space, we adopt an action representation governed by unicycle dynamics."
+- The model predicts **control inputs (`a`, `κ`)** at each timestep, **not raw positions**.
+- During inference, these controls are forward-integrated using **Euler discretisation** to yield `(x, y, θ, v)` waypoints.
+- Because the model outputs physically meaningful controls (**bounded acceleration and curvature**), the resulting trajectory is **kinematically consistent** by construction.
+- The flow-matching action expert then refines these into **smooth continuous waypoints** conditioned on the reasoning.
+
+**Q] How does inference work? Autoregressive? Recurrent? Are the trajectory, meta-actions and the reasoning text produced in parallel or in series?**
+- In series, not in parallel:
+- **VLM autoregression.**
+  - The model autoregressively generates, in **one unified token stream**:
+    - The `CoC` reasoning trace (variable-length text tokens).
+    - The meta-action tokens.
+    - The **128 discrete trajectory tokens**.
+- Action-expert flow matching.
+  - Once **all discrete trajectory tokens** are generated, the action expert takes them together with the **reasoning tokens** and produces the **final continuous trajectory** via flow matching.
+
+**Q] What training procedure? What loss functions?**
+
+A multi-stage "data pyramid" strategy:
+
+- Foundation pre-training.
+  - `Cosmos` VLM trained on internet-scale data.
+- `Cosmos-Reason`.
+  - Post-trained on 3.7M Physical AI VQA + 24.7K driving VQA.
+  - Reasoning traces distilled from `DeepSeek-R1`. This teaches the model **_how_** to reason (free-form, **not yet action-grounded**).
+- Distillation.
+  - Compressed into a smaller backbone.
+- Broad Physical-AI SFT.
+  - Trained on heterogeneous driving + robotics + other Physical AI data.
+- Driving-specific SFT.
+  - Trained on in-house driving data.
+  - The **action modality** is injected here: the **action expert** and **discrete trajectory** tokens are introduced, creating the **full VLA**.
+- Reasoning SFT on CoC data.
+  - Fine-tuning on the CoC dataset to elicit structured, **causally grounded reasoning**.
+  - Reshapes the free-form reasoning habit from Cosmos-Reason into **structured, decision-anchored traces**.
+  - Teaches the model **_what_ to reason about** (causal factors, closed-set decisions, trajectory-aligned).
+- RL alignment.
+  - Post-training with `GRPO`-style RL using three reward types:
+    - reasoning quality,
+    - reasoning-action consistency,
+    - trajectory quality.
+  - The RL post-training teaches it to say things that **_match_** what the vehicle actually does.
+
+**Q] Why is it called VLA and not simply VLM? The output is yet another type of tokens? What about the "action expert"?**
+
+- A standard VLM maps `images + text → text`.
+- AR1 adds a third modality: **continuous physical actions**.
+- Specifically:
+  - The output includes **discrete trajectory tokens** mixed into the VLM's token stream (extending VLM to VLA).
+  - The **action expert** is a separate lightweight transformer module that takes those discrete trajectory tokens plus the reasoning tokens and _decodes_ them into **continuous waypoints** via flow matching.
+  - It is not a simple post-processing step!
+  - It is **trained jointly** as part of the VLA.
+
+**Q] Do we need to wait for all discrete-trajectory tokens to be generated before doing the flow-matching? How does the flow-matching work? Autoregressive?**
+
+- Yes, in the current design.
+- The autoregressive VLM first produces all **128 discrete trajectory tokens** (plus the full reasoning), and only then does the flow-matching decoder run as **a single forward pass**.
+- The **flow matching is not autoregressive** - it is a parallel refinement step over the full trajectory, conditioned on the reasoning tokens.
+
+**Q] What about RL? What is the MDP formulation? What algorithm? What reward types?**
+
+The paper uses **GRPO (Group Relative Policy Optimisation)**, the same algorithm as DeepSeek-R1.
+
+Three reward signals:
+- **Reasoning** quality reward.
+- Reasoning-action **consistency**.
+- **Trajectory** quality. Measures the low-level planning accuracy of the predicted waypoints (open-loop displacement error).
+
+RL formulation:
+- The **MDP state** is the full input observation (images, egomotion, navigation).
+- The action is the **full output token sequence** (`reasoning` + `meta-actions` + `discrete trajectory`).
+- GRPO samples multiple outputs per input, scores them with the rewards, and updates the policy to increase the probability of higher-scoring outputs relative to the group average.
+
+**Q] What is the "env" for the MDP? So that the agent can interact and run closed-loop? What is the "world model"?**
+
+- AR1's RL is **not a classical sequential MDP** with per-timestep transitions!
+- It is **closer to a bandit** / **single-step RL** formulation (as used in `DeepSeek-R1` with `GRPO`):
+  - The "state" is **one driving clip** (images + egomotion + optional text).
+  - The "action" is the **entire output token sequence** (`reasoning` + `meta-actions` + `discrete trajectory`) generated in **one shot**.
+  - The reward is computed on that full output and assigned as a scalar.
+  - There is **no environment** stepping between tokens.
+  - The model **just samples `N` complete outputs** per input, scores them, and updates.
+
+So in practice:
+- `delta-t` is undefined (there is **no Markovian** step),
+- And the discount factor `γ = 1` (or equivalently irrelevant, since the reward is applied to the whole sequence at once).
+- `GRPO` normalises rewards within the group of `N` samples, computes advantages, and updates via a **clipped policy gradient** - no value network needed.
+
+World model?
+- The paper does **not report RL training inside AlpaSim**
+- The RL is **purely offline/bandit**: the "world" is just the **static dataset**.
+  - There is no world model - the **car never actually moves**.
+- Only **the evaluation** is closed-loop (using AlpaSim).
+
+**Q] About inference: can image encodings be reused across overlapping frames?**
+- With the default **single-image `ViT` tokeniser**: yes, partially.
+  - Frames `B`, `C`, `D` produce identical **tokens** in both runs and **can be cached**, saving 3/4 of the vision encoder compute.
+  - But the **vision encoder** is cheap - the **VLM autoregression** still runs from scratch each step.
+- With the `Flex` tokeniser: yes, more efficiently.
+  - **Raw image features** for `B`, `C`, `D` are kept in memory. Only the new frame `E` is encoded, then `Flex` re-runs its **(cheap) cross-attention** compression over the updated set.
+- What **cannot be cached** across steps:
+  - the VLM autoregression,
+  - the reasoning trace,
+  - and the action expert.
+  - These are regenerated at every time step.
+
+**Q] About batching: how to efficiently get 10 trajectory predictions for the same input?**
+
+- The **flow-matching decoder is stochastic** - each forward pass draws from a **different noise sample**, producing a different trajectory.
+  - This is how **multi-modal futures** are sampled.
+- The VLM autoregression runs once, producing **one reasoning trace** and **one set of discrete trajectory** tokens.
+- Those shared tokens are then used as **conditioning** for **10 parallel action-expert forward passes**, batched on GPU.
+  - This is **cheap** since the **action expert (2.3B) is much smaller** than the backbone (8.2B), and all 10 passes share the same context.
+- The cost is therefore:
+  - `1× VLM autoregression` + `1× batched action-expert forward pass with batch size 10`.
+
+Idea:
+- The **10 trajectory proposals** can then be passed to a **classical rule-based** system for selection or filtering.
+- Each candidate can be scored against **hard constraints** _(collision checks, lane boundary violations, kinematic limits)_ that are **difficult to enforce** inside a neural network but trivial to verify externally.
+- This creates a **useful safety guardrail**:
+  - the neural model generates diverse, plausible futures
+  - the rule-based layer picks the one that is **safe and legal**.
+
+_-_-_-_
+
+</details>
+
 ---
 
 **`"π*0.6: a VLA that Learns from Experience"`**
