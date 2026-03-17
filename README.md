@@ -1179,6 +1179,114 @@ _what `delta-t`?_
 **`"Alpamayo-R1: Bridging Reasoning and Action Prediction for Generalizable Autonomous Driving in the Long Tail"`**
 
 - **[** `2026` **]**
+  **[[:memo:](https://arxiv.org/pdf/2603.12263v1)]**
+  **[[🎞️](https://psi-lab.ai/Psi0/)]**
+  **[[:octocat:](https://github.com/physical-superintelligence-lab/Psi0)]**
+
+- **[** _`VLA`, `dexterous + loco-manipulation`, `action expert`_ **]**
+
+<details>
+  <summary>Click to expand</summary>
+
+|                                                                                                                                                                                                                                                      ![](media/2026_wei_1.png)                                                                                                                                                                                                                                                       | 
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The VLA (Ψ₀) outputs a 36-dim action vector. Part of it are **joints targets** for **hands and arms**. It also contains high-level targets, not raw motor commands, for **the lower part**. The **RL locomotion controller** ([AMO](https://amo-humanoid.github.io/)) then takes those 'intermediate variables' as its input and converts them into actual lower-body joint angles `q_lower` for the legs. It is the RL policy that runs the legs (locomotion), not the VLA directly. [source](https://arxiv.org/pdf/2603.12263v1)* |
+
+> "Our key finding is that scaling the right data in the right way."
+
+_-_-_-_
+
+**Q1] What is a VLA and what does it output?**
+
+A Vision-Language-Action (VLA) model takes camera images and a language instruction as input and outputs robot actions directly, instead of text.
+
+- The output is an *action chunk*: a short sequence of future joint targets, e.g. shape `[30 timesteps × 36 joints]`.
+- Each row is the desired robot configuration at one moment in time.
+- This is low-level (joint angles), not high-level ("move left").
+- The 36-dim action vector for `Ψ₀` is: `{q_hand (14), q_arm (14), torso_rpy (3), base_height (1), vx, vy (2), v_yaw (1), p_yaw (1)}`.
+
+_-_-_-_
+
+**Q2] What is flow matching, and what is `τ`?**
+
+Flow matching is a way to train a generative model that learns to go from random noise to a clean output (here: a robot trajectory).
+
+- It defines a straight-line path between noise (`τ=0`) and clean data (`τ=1`).
+- The network learns the *velocity* of that path at any point.
+- At inference: start from Gaussian noise (e.g. a matrix 30 x 36), integrate the velocity field over ~10 steps to arrive at the clean action chunk.
+- `τ` is a scalar (0 to 1) passed as input to the network. It tells the network where along the denoising path it currently is.
+- All timesteps of the chunk are predicted simultaneously, not one by one.
+
+_-_-_-_
+
+**Q3] What is the architecture of `Ψ₀`?**
+
+Two separate networks work together.
+
+- The VLM backbone (Qwen3-VL-2B, frozen after stage 1) processes images + language and produces hidden states `H` of shape `[num_tokens × 2048]` from its last layer.
+- The action expert (500M parameters) is a flow-matching transformer. It takes noisy action tokens and denoises them, conditioned on `H`.
+- `H` (all token embeddings, not just the last one) is passed to every block of the action expert.
+- Architecture used: MM-DiT. Inside each action expert block, action tokens and VLM tokens are concatenated and attend to each other jointly. This lets the action expert "zoom in" on specific image patches or words rather than relying on a single global summary vector.
+
+_-_-_-_
+
+**Q4] Why not train everything on human video?**
+
+Human and humanoid robot kinematics are fundamentally different (different joint layout, degrees of freedom, motion style). Co-training on both leads to poor performance on robot tasks.
+
+- The VLM is pre-trained on human video to learn rich visual-semantic representations.
+- The action expert is trained separately on real robot data, in joint space (actual motor angles).
+- This decouples "what actions look like visually" from "how to execute them on this robot body".
+
+_-_-_-_
+
+**Q5] What are the 3 training stages?**
+
+- Stage 1 - VLM pre-training on human video (EgoDex, ~800h). Input: egocentric video + language. Actions tokenised with FAST, trained as next-token prediction. Output: a VLM that understands visual-action context.
+- Stage 2 - Action expert post-training on real robot data (Humanoid Everyday, ~30h). VLM frozen. Input: robot joint-space trajectories. Output: a complete `Ψ₀` model that predicts action chunks in joint space.
+- Stage 3 - End-to-end fine-tuning on a small in-domain task dataset. Both VLM and action expert updated. Output: a task-specialised policy.
+
+_-_-_-_
+
+**Q6] What is the FAST tokeniser and how does it work?**
+
+FAST converts a continuous action trajectory into a short sequence of discrete tokens, so a standard LLM can do next-token prediction over actions.
+
+- Step 1: apply DCT (Discrete Cosine Transform) to the trajectory. Smooth motions compress into a few low-frequency coefficients, like JPEG for signals.
+- Step 2: quantise the DCT coefficients into integers.
+- Step 3: apply BPE (Byte-Pair Encoding), exactly as in LLM tokenisation, to compress frequent integer patterns into single tokens.
+- Result: ~20 tokens per action chunk (10x compression vs. naive per-timestep tokenisation).
+- `Ψ₀` trains its own FAST tokeniser from scratch on 500k sampled actions from EgoDex. Only the BPE vocabulary is learned; training takes minutes.
+
+_-_-_-_
+
+**Q7] What is real-time chunking (RTC) and why is it needed?**
+
+`Ψ₀` has 2.5B parameters. One forward pass takes ~160ms. The robot runs at 60Hz (needs a command every ~17ms). Predicting one action at a time is far too slow.
+
+- Solution: predict a chunk of future actions at once and execute them while the model computes the next chunk.
+- Problem: when the next chunk arrives there can be a discontinuity (jump) if the robot is mid-execution.
+- RTC fix: the new prediction is conditioned on the previously committed chunk. The model learns to always output a chunk that continues smoothly from whatever is already executing.
+- During training, random amounts of noise are added to the committed chunk so the model learns this conditioning in the same "noisy action" format the flow model already understands.
+
+_-_-_-_
+
+**Q8] How does the RL controller fit in, and how are locomotion and manipulation coordinated?**
+
+The robot's lower body (legs) is controlled by a separate pre-trained RL policy (AMO). The VLA controls the upper body only.
+
+- The VLA outputs locomotion commands as part of its action vector: `vx, vy` (walking speed), `v_yaw` (turning), and intermediate variables `torso_rpy`, `h_b` (base height).
+- These are passed as high-level commands to AMO, which converts them into actual leg joint angles.
+- There is no explicit task planner for switching between "walk" and "manipulate". The VLA policy learns this implicitly from demonstrations: when far from the target it predicts non-zero velocity and retracted arms; when close, velocity drops and arms extend.
+- Two asynchronous threads run at inference: a slow policy thread (~6Hz) that updates the action buffer, and a fast control thread (60Hz) that feeds commands to AMO 
+
+</details>
+
+---
+
+**`"Alpamayo-R1: Bridging Reasoning and Action Prediction for Generalizable Autonomous Driving in the Long Tail"`**
+
+- **[** `2026` **]**
   **[[:memo:](https://arxiv.org/pdf/2511.00088)]**
   **[[🎞️](https://youtu.be/KGCTwoAlhsM)]**
   **[[:octocat:](https://github.com/NVlabs/alpamayo)]**
@@ -1564,8 +1672,6 @@ Idea:
 - This creates a **useful safety guardrail**:
   - the neural model generates diverse, plausible futures
   - the rule-based layer picks the one that is **safe and legal**.
-
-_-_-_-_
 
 </details>
 
@@ -2016,7 +2122,7 @@ In short: **Generalize** to **new environments** for **complex tasks**
   - It is **more expressive** than **discrete tokenization** for real-time control
   - The expert **outputs a flow vector field** that guides the denoising process.
   - **10 denoising steps** are used to produce the final action chunk.
-- It uses a projected time step (τ) with a special sampling distribution that emphasizes low time-steps.
+- It uses a projected time step (`τ`) with a special sampling distribution that emphasizes low time-steps.
 - It uses from the VLM:
   - High-Level **subtask prediction**, e.g. "pick up the plate", autoregressively generated by the VLM.
   - **Embeddings** generated by the VLM (passed via self-attention).
