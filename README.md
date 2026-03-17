@@ -1176,7 +1176,7 @@ _what `delta-t`?_
 
 # :point_up: not (classical) RL
 
-**`"Alpamayo-R1: Bridging Reasoning and Action Prediction for Generalizable Autonomous Driving in the Long Tail"`**
+**`"Ψ₀: An Open Foundation Model Towards Universal Humanoid Loco-Manipulation"`**
 
 - **[** `2026` **]**
   **[[:memo:](https://arxiv.org/pdf/2603.12263v1)]**
@@ -1188,9 +1188,9 @@ _what `delta-t`?_
 <details>
   <summary>Click to expand</summary>
 
-|                                                                                                                                                                                                                                                      ![](media/2026_wei_1.png)                                                                                                                                                                                                                                                       | 
-|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
-| *The VLA (Ψ₀) outputs a 36-dim action vector. Part of it are **joints targets** for **hands and arms**. It also contains high-level targets, not raw motor commands, for **the lower part**. The **RL locomotion controller** ([AMO](https://amo-humanoid.github.io/)) then takes those 'intermediate variables' as its input and converts them into actual lower-body joint angles `q_lower` for the legs. It is the RL policy that runs the legs (locomotion), not the VLA directly. [source](https://arxiv.org/pdf/2603.12263v1)* |
+|                                                                                                                                                                                                                                                       ![](media/2026_wei_1.png)                                                                                                                                                                                                                                                        | 
+|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:| 
+| *The VLA (`Ψ₀`) outputs a 36-dim action vector. Part of it are **joints targets** for **hands and arms**. It also contains high-level targets, not raw motor commands, for **the lower part**. The **RL locomotion controller** ([AMO](https://amo-humanoid.github.io/)) then takes those 'intermediate variables' as its input and converts them into actual lower-body joint angles `q_lower` for the legs. It is the RL policy that runs the legs (locomotion), not the VLA directly. [source](https://arxiv.org/pdf/2603.12263v1)* |
 
 > "Our key finding is that scaling the right data in the right way."
 
