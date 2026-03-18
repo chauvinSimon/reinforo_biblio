@@ -1280,6 +1280,53 @@ The robot's lower body (legs) is controlled by a separate pre-trained RL policy 
 - There is no explicit task planner for switching between "walk" and "manipulate". The VLA policy learns this implicitly from demonstrations: when far from the target it predicts non-zero velocity and retracted arms; when close, velocity drops and arms extend.
 - Two asynchronous threads run at inference: a slow policy thread (~6Hz) that updates the action buffer, and a fast control thread (60Hz) that feeds commands to AMO 
 
+_-_-_-_
+
+**Q9] What are the inputs and outputs of the action expert transformer?**
+
+The action expert is a transformer that takes noisy action tokens and refines them, conditioned on VLM hidden states and τ.
+
+- The noisy action chunk `[30 × 36]` is projected up to `d_model` (e.g. 1024) via a linear layer, giving 30 action tokens.
+- The VLM hidden states `H` (e.g. 500 tokens × 2048, one per image patch or word) are projected to the same `d_model`.
+- The full input sequence is the concatenation `[30 action tokens | 500 VLM tokens]`, all of size `d_model`.
+- Sequence length does not change across transformer layers: all 530 tokens go in and come out.
+- After the final layer, the VLM tokens are discarded. Only the 30 action tokens remain.
+- A linear layer projects each action token back down from `d_model` to 36, giving the output `[30 × 36]`.
+
+_-_-_-_
+
+**Q10] How is `τ` injected without adding extra tokens?**
+
+`τ` is a scalar between 0 and 1. It does not increase the sequence length.
+
+- `τ` is encoded into a small vector via a sinusoidal embedding (same trick as positional encodings in LLMs).
+- This vector is used to compute a per-layer scale and shift inside each block, via adaptive layer norm: `output = scale(τ) × LayerNorm(x) + shift(τ)`.
+- `scale` and `shift` are small learned networks that take `τ` as input.
+- Every token at every layer is modulated by `τ`, but the sequence stays at 530 tokens throughout.
+
+_-_-_-_
+
+**Q11] What is the loss function for the action expert?**
+
+Unlike LLMs (classification over a vocabulary), the action expert uses a regression loss. The target is a velocity vector, not a token ID.
+
+- Sample a clean action `a_clean` from the dataset, a random noise matrix `ε`, and a random `τ` ∈ [0, 1].
+- Construct the noisy input: `a_τ = τ · a_clean + (1 - τ) · ε`.
+- The target velocity is fixed by the flow definition: `v_target = a_clean - ε` (the straight-line direction from noise to clean data).
+- The network predicts `v_predicted` from `a_τ`, the VLM conditioning, and `τ`.
+- Loss: `MSE(v_predicted, v_target)` = mean squared error. No softmax, no cross-entropy.
+- `τ` is sampled randomly every step, so the network trains at all noise levels simultaneously.
+
+_-_-_-_
+
+**Q12] How does the loss differ between stage 1 and stage 2?**
+
+`Ψ₀` uses two different loss functions depending on the training stage.
+
+- Stage 1 (VLM pre-training on human video): actions are tokenised with FAST into discrete integer tokens. Loss is cross-entropy next-token prediction, exactly as in an LLM. The FAST tokens are appended to the standard LLM vocabulary.
+- Stage 2 (action expert on robot data): actions are continuous joint angles. Loss is MSE over the predicted flow velocity, as described above.
+- The two stages are complementary: stage 1 teaches visual-semantic understanding via a classification objective; stage 2 teaches precise motor control via a regression objective.
+
 </details>
 
 ---
