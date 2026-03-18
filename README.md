@@ -1258,7 +1258,15 @@ FAST converts a continuous action trajectory into a short sequence of discrete t
 - Result: ~20 tokens per action chunk (10x compression vs. naive per-timestep tokenisation).
 - `Ψ₀` trains its own FAST tokeniser from scratch on 500k sampled actions from EgoDex. Only the BPE vocabulary is learned; training takes minutes.
 
-_-_-_-_
+One **FAST token** does not represent **one timestep** (36 actions)!
+- Token `7` out of `20` is a DCT frequency **coefficient fragment** in BPE-compressed space.
+- It means nothing on its own, and nothing useful accumulates until you have **all 20 and run the inverse DCT**.
+- The **trajectory is only recoverable at the very end**.
+- Similar to _"we need to wait for all words to form a sentence"_ in LLMs, except that individual words/sub-words already make sense to us.
+- A better analogy might be a JPEG file transmitted byte by byte.
+  - Each byte is part of the compressed representation, but you cannot see any part of the image until you have received enough bytes to decode a full block.
+
+- _-_-_-_
 
 **Q7] What is real-time chunking (RTC) and why is it needed?**
 
@@ -1326,6 +1334,22 @@ _-_-_-_
 - Stage 1 (VLM pre-training on human video): actions are tokenised with FAST into discrete integer tokens. Loss is cross-entropy next-token prediction, exactly as in an LLM. The FAST tokens are appended to the standard LLM vocabulary.
 - Stage 2 (action expert on robot data): actions are continuous joint angles. Loss is MSE over the predicted flow velocity, as described above.
 - The two stages are complementary: stage 1 teaches visual-semantic understanding via a classification objective; stage 2 teaches precise motor control via a regression objective.
+
+_-_-_-_
+
+**Q13] In stage1, why not mapping `1 token` -> `1-timestep (36 actions)`?**
+
+- If you map each timestep directly to one token, you need to **quantise 36 continuous joint angles** into a discrete token ID.
+  - That means you are **binning** a 36-dimensional continuous vector into a single integer from a finite vocabulary.
+  - You either:
+    - **lose precision** (coarse bins),
+    - or **explode the vocabulary size** (fine bins).
+- But there is a deeper problem.
+  - Robot trajectories are temporally smooth.
+  - The arm at timestep `5` is almost identical to timestep `4`.
+  - So consecutive tokens carry almost no new information.
+  - The cross-entropy loss becomes trivially easy to minimise by just **copying the previous token**, and the model learns nothing useful.
+  - This is the "bad local optimum" problem the paper explicitly warns about.
 
 </details>
 
@@ -1583,7 +1607,7 @@ Two more efficient alternatives are also supported:
 **Q] How are "Meta Action" produced?**
 
 - Meta actions are predicted as **special tokens** in the VLM's vocabulary, **decoded autoregressively** alongside the reasoning trace.
-- They are drawn from a **closed-set taxonomy** of_
+- They are drawn from a **closed-set taxonomy** of:
   - **Longitudinal** decisions (e.g. _"constant speed"_, _"yield"_, _"lead-obstacle following"_)
   - **Lateral** decisions (e.g. _"go straight"_, _"lane change left"_, _"lateral manoeuvre abort"_).
 - **At most one** longitudinal and one lateral label is predicted per inference step.
