@@ -1225,6 +1225,7 @@ Two separate networks work together.
 
 - The VLM backbone (Qwen3-VL-2B, frozen after stage 1) processes images + language and produces hidden states `H` of shape `[num_tokens × 2048]` from its last layer.
 - The action expert (500M parameters) is a flow-matching transformer. It takes noisy action tokens and denoises them, conditioned on `H`.
+  - Warning: **"action expert"** has nothing to do with the _Mixture of Experts_ in transformers!
 - `H` (all token embeddings, not just the last one) is passed to every block of the action expert.
 - Architecture used: multi-modal diffusion transformer (MM-DiT).
   - If `H` were only an input token (naïve approach):
@@ -1232,6 +1233,7 @@ Two separate networks work together.
   - Here, MM-DiT instead:
     - The VLM tokens (embeddings) are kept separate and **re-injected fresh at every block**.
     - Layer `#10` attends to the same clean `H` as layer `#1` did.
+
 _-_-_-_
 
 **Q4] Why not train everything on human video?**
@@ -1379,6 +1381,32 @@ _-_-_-_
   - These are rich continuous representations that encode everything the VLM understood about the image and language input.
   - This is what is passed to the action expert in Stage 2.
   - The **vocabulary projection is simply not applied**.
+
+_-_-_-_
+
+**Q15] How are input tokens produced?**
+
+```
+text  → tokeniser → integer IDs → embedding table → d_model vectors
+image → ViT encoder                               → d_model vectors
+propr → linear MLP                                → d_model vectors
+```
+
+_-_-_-_
+
+**Q16] How do the input and output projections of the action expert work, and what happens at each denoising step?**
+
+The input and output projections are asymmetric: the input encodes **joint positions** (action-candidates) into embeddings, the output decodes embeddings into **velocities** in action space (not physical velocities).
+
+- Input projection: `[30 × 36]` noisy joint positions → `[30 × d_model]` action token embeddings.
+- Output projection: `[30 × d_model]` action token embeddings → `[30 × 36]` predicted velocity.
+- "Velocity" here is **not physical joint velocity**.
+  - It is the direction and magnitude to move the noisy action matrix towards the clean one, in the abstract `[30 × 36]`-dimensional space.
+- The update rule converts velocity back to positions: `new_actions = old_actions + predicted_velocity × Δτ`.
+- Each denoising step therefore requires: **decode** (output projection → velocity), **integrate** (update rule → new positions), **re-encode** (input projection → new embeddings).
+- The transformer always receives joint positions as input and always outputs velocities.
+  - The sequence length `[30 + 500]` never changes across the ~10 denoising steps.
+- After all steps, the final `[30 × 36]` output is **clean joint positions**, ready to be sent to the motors (its PD-controller probably).
 
 </details>
 
