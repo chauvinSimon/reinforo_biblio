@@ -1226,8 +1226,12 @@ Two separate networks work together.
 - The VLM backbone (Qwen3-VL-2B, frozen after stage 1) processes images + language and produces hidden states `H` of shape `[num_tokens × 2048]` from its last layer.
 - The action expert (500M parameters) is a flow-matching transformer. It takes noisy action tokens and denoises them, conditioned on `H`.
 - `H` (all token embeddings, not just the last one) is passed to every block of the action expert.
-- Architecture used: MM-DiT. Inside each action expert block, action tokens and VLM tokens are concatenated and attend to each other jointly. This lets the action expert "zoom in" on specific image patches or words rather than relying on a single global summary vector.
-
+- Architecture used: multi-modal diffusion transformer (MM-DiT).
+  - If `H` were only an input token (naïve approach):
+    - These embeddings will be progressively distorted by interacting with action tokens across layers.
+  - Here, MM-DiT instead:
+    - The VLM tokens (embeddings) are kept separate and **re-injected fresh at every block**.
+    - Layer `#10` attends to the same clean `H` as layer `#1` did.
 _-_-_-_
 
 **Q4] Why not train everything on human video?**
@@ -1266,7 +1270,11 @@ One **FAST token** does not represent **one timestep** (36 actions)!
 - A better analogy might be a JPEG file transmitted byte by byte.
   - Each byte is part of the compressed representation, but you cannot see any part of the image until you have received enough bytes to decode a full block.
 
-- _-_-_-_
+The FAST tokens in Stage 1 represent trajectories **in task space, not joint space**.
+- **Task space** means end-effector coordinates.
+- This is what you **can extract from human video** - you can estimate where the hand is moving in space using **pose estimation**.
+
+_-_-_-_
 
 **Q7] What is real-time chunking (RTC) and why is it needed?**
 
@@ -1300,6 +1308,12 @@ The action expert is a transformer that takes noisy action tokens and refines th
 - Sequence length does not change across transformer layers: all 530 tokens go in and come out.
 - After the final layer, the VLM tokens are discarded. Only the 30 action tokens remain.
 - A linear layer projects each action token back down from `d_model` to 36, giving the output `[30 × 36]`.
+
+Edit: a **previously predicted (committed) chunk** is always included in the input. The full sequence inside the action expert during inference with RTC is roughly:
+
+```
+[500 VLM tokens | 30 committed chunk tokens | 30 noisy action tokens]
+```
 
 _-_-_-_
 
@@ -1350,6 +1364,21 @@ _-_-_-_
   - So consecutive tokens carry almost no new information.
   - The cross-entropy loss becomes trivially easy to minimise by just **copying the previous token**, and the model learns nothing useful.
   - This is the "bad local optimum" problem the paper explicitly warns about.
+
+_-_-_-_
+
+**Q14] What are the two "exits" of the VLM?**
+
+- Exit 1 - the language modelling head.
+  - This is a linear projection from `d_model` (`2048`) onto the full vocabulary (say `50k+` FAST tokens).
+  - This is what is used in Stage 1 to do **next-token prediction**.
+  - It produces a **probability distribution** over tokens.
+  - This exit is **only used during Stage 1** training.
+- Exit 2 - the raw hidden states (the embeddings).
+  - Before that final projection, you have the **sequence of 2048-dim vectors** from the last transformer layer.
+  - These are rich continuous representations that encode everything the VLM understood about the image and language input.
+  - This is what is passed to the action expert in Stage 2.
+  - The **vocabulary projection is simply not applied**.
 
 </details>
 
@@ -1440,7 +1469,7 @@ The whole **output sequence** is formulated as:
 
 Concretely:
 - The VLM backbone **autoregressively** generates
-  - Teasoning tokens first,
+  - Reasoning tokens first,
   - Then discrete trajectory tokens - so the **trajectory generation _attends_ to the reasoning**.
 - After that, the **action-expert** (a flow-matching decoder) takes both the **reasoning tokens and the discrete trajectory tokens** as input and produces a **continuous, kinematically feasible trajectory**.
 
@@ -1781,6 +1810,8 @@ Idea:
 
 :warning: **To clarify: RL signals are used (`reward`, `return`, `value`, `advantage`) but they do not do RL optimization!**
 
+The core question: **in autonomous rollouts, where do the _training labels_ come from?**
+
 In short:
 - `Recap` improves a large VLA policy **without policy gradients** by combining demonstrations, human corrections, and autonomous rollouts through **advantage-conditioned** imitation _(yes, still imitation!)_.
 - A **distributional value function** is trained from Monte-Carlo returns of the dataset's behaviour policy to **estimate task progress** robustly across tasks.
@@ -1892,7 +1923,7 @@ Q3] What are the **3 tasks for training**:
       - **Self-attention** within the action expert.
 
 Q4] What is the input of the VLA? A concatenation of:
-- Up to 4 **images** converted to tokens by the vision encoded.
+- Up to 4 **images** converted to tokens by the vision encoder.
 - The tokenized **language prompt**.
 - The tokenized **proprioceptive states** (e.g. current robot pose).
 
@@ -1911,7 +1942,7 @@ Q6] How not to degrade the VLM backbone (pre-trained web-scale knowledge) while 
 - Solution: [**insulating** the VLM backbone during VLA training](https://arxiv.org/abs/2505.23705).
   - Gradient blocking. But still fine-tuning the VLM backbone.
 
-Q7] How fat at Inference?
+Q7] How fast at Inference?
 - Only about the third task (continuous control via action expert).
 - > "With **5 denoising steps** and **3 camera inputs**, `π0.6` takes **63ms** to produce an action chunk on a single H100 GPU."
 
@@ -1942,7 +1973,7 @@ Q10] Additional **inputs**?
   - First, `advantage` is computed numerically. 
   - Then binarized into something like:
     - "good trajectory": `indicator = True`, e.g. used for all corrections.
-    - "bad trajectory": `indicator = False`
+    - "bad trajectory": `indicator = False`.
   - The model never sees the scalar advantage.
 - Additional language inputs (not just the **overall task prompt**) providing **metadata** that further modulates **_how_** the task is performed.
 
@@ -2061,6 +2092,44 @@ Q24] Why not just **drop bad actions**?
 - This is similar to **contrastive learning**:
   - You learn positives and negatives.
   - But only **deploy positives**.
+
+_-_-_-_
+
+**Q25] Where do the training labels come from in autonomous rollouts - no human is teleoperating?**
+
+The robot runs the full task on its own. At the end, a human (or sensor) simply labels the episode as success or failure. From that single outcome signal, all richer training quantities are derived by arithmetic and a trained network.
+
+- A sparse reward is assigned to every timestep after the fact:
+  - `-1` per step during the episode.
+  - `0` at termination if success.
+  - `-C_fail` (large negative) at termination if failure.
+- The **Monte Carlo return** `R_t` is computed for every timestep `t` as the sum of all rewards from `t` to the end. No network involved - pure arithmetic over the collected trajectory.
+  - For a successful episode of length T: `R_t = -(T - t)`, i.e. the negative number of remaining steps.
+  - For a failed episode: roughly `-C_fail` plus accumulated step penalties.
+- A **value function** `V(o_t, l)` is then trained to *predict* `R_t` from the current observation and language command. This is what the robot *expects* to happen from a given state.
+  - Framed as classification: returns are discretised into 201 bins, trained with cross-entropy loss.
+  - Uses the same architecture as the VLA, but with a smaller backbone (Gemma 0.27b).
+  - Distributional formulation is preferred over a scalar because it is far more stable across tasks with different time horizons and reward scales.
+
+_-_-_-_
+
+**Q26] How is the advantage computed, and how does it improve the policy without any policy gradient?**
+
+Once the value function is trained, each action in the dataset can be labelled in hindsight as better or worse than expected. This label is used to steer imitation learning rather than to compute a gradient through the policy.
+
+- The **advantage** is `A_t = R_t - V(o_t, l)`.
+  - `R_t` is the actual observed return (known because the episode finished).
+  - `V(o_t, l)` is the value function's prediction (the expected return from that state).
+  - `A_t > 0` means the action led to a better outcome than anticipated - credit is assigned even if the mistake (or the good move) only becomes apparent steps later.
+  - `A_t < 0` means the action led to a worse outcome than anticipated.
+- The advantage is **binarised** into an improvement indicator `I_t`:
+  - `I_t = 1` if `A_t > ε_l` (a task-specific threshold).
+  - `I_t = 0` otherwise.
+- The VLA is trained with the standard supervised loss on **all** collected data, but with `I_t` as an extra input:
+  - Good actions (`I_t = 1`) and bad actions (`I_t = 0`) are both kept. Bad actions carry boundary and recovery information.
+  - At inference, `I_t` is always set to `1`. The model has learnt to produce the kind of actions historically associated with better-than-expected outcomes.
+- For human correction actions (coaching), `I_t` is forced to `1` unconditionally - no advantage computation needed. The assumption is that an expert intervening always provides a better action than the autonomous policy.
+- The advantage is a **training-only signal**. At inference the episode has not ended, so `R_t` is unknown and no advantage can be computed.
 
 </details>
 
